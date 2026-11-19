@@ -114,6 +114,21 @@
   }
   .chips button:active { background: color-mix(in srgb, var(--green) 14%, transparent); border-color: var(--green); }
   .switch { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+  .seg { display: flex; flex: 1; gap: 6px; }
+  .seg-btn {
+    flex: 1; min-width: 0; height: 36px; padding: 0 6px; white-space: nowrap;
+    border: 1px solid var(--line); border-radius: 11px;
+    background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer;
+  }
+  @media (max-width: 340px) { .seg-btn { font-size: 12px; padding: 0 4px; } }
+  .seg-btn[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--green) 14%, transparent);
+    border-color: var(--green); color: var(--green-dark); font-weight: 700;
+  }
+  @media (prefers-color-scheme: dark) { .seg-btn[aria-pressed="true"] { color: #4ADE80; } }
+  .file-btn { position: relative; overflow: hidden; }
+  .ring-name { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tone-note { font-size: 11px; line-height: 1.55; color: var(--muted); margin: 10px 0 0; }
   .switch input { width: 20px; height: 20px; accent-color: var(--green); }
 
   /* ---------- lists ---------- */
@@ -275,6 +290,31 @@
       <label class="switch"><input type="checkbox" id="soundToggle"><span>鈴聲</span></label>
       <label class="switch"><input type="checkbox" id="vibeToggle"><span>震動</span></label>
     </div>
+    <div class="row">
+      <span class="hint" style="min-width:62px">音色</span>
+      <div class="seg" role="group" aria-label="鈴聲音色">
+        <button class="seg-btn" data-tone="line" aria-pressed="true">LINE 風</button>
+        <button class="seg-btn" data-tone="bell" aria-pressed="false">清脆鈴</button>
+        <button class="seg-btn" data-tone="custom" aria-pressed="false">自訂</button>
+      </div>
+    </div>
+    <div class="row" id="customRow" hidden>
+      <label class="btn small ghost file-btn">
+        選擇音檔
+        <input type="file" id="ringFile" accept="audio/*" hidden>
+      </label>
+      <span class="ring-name" id="ringName">未選擇</span>
+      <button class="del" id="btnClearRing" aria-label="移除自訂音檔">×</button>
+    </div>
+    <p class="tone-note">
+      自訂音檔存在這台裝置的瀏覽器裡（不會上傳）。LINE 官方鈴聲是版權音檔，無法內建；
+      想用真正的 LINE 鈴聲，請把音檔存到「檔案」App 後在這裡選取。
+    </p>
+    <div class="row">
+      <span class="hint" style="min-width:62px">音量</span>
+      <input type="range" id="ringVol" min="0" max="100" step="5" aria-label="鈴聲音量">
+      <span class="hint" id="ringVolVal" style="min-width:44px;text-align:right">85%</span>
+    </div>
   </section>
 
   <section class="card">
@@ -359,7 +399,7 @@
 (() => {
   "use strict";
   const LS_KEY = "lineCallSim.v1";
-  const DEFAULTS = { name: "媽媽", ringSecs: 25, sound: true, vibe: true, schedules: [], log: [] };
+  const DEFAULTS = { name: "媽媽", ringSecs: 25, sound: true, vibe: true, tone: "line", vol: 85, schedules: [], log: [] };
   const $ = (id) => document.getElementById(id);
   const el = {
     statusText: $("statusText"), beacon: $("beacon"), nextUp: $("nextUp"),
@@ -375,12 +415,16 @@
     ringActions: $("ringActions"), activeActions: $("activeActions"),
     accept: $("btnAccept"), decline: $("btnDecline"), hangup: $("btnHangup"),
     mute: $("btnMute"), speaker: $("btnSpeaker"), soundHint: $("soundHint"),
+    toneSeg: document.querySelector(".seg"), customRow: $("customRow"),
+    ringFile: $("ringFile"), ringName: $("ringName"), btnClearRing: $("btnClearRing"),
+    ringVol: $("ringVol"), ringVolVal: $("ringVolVal"),
   };
 
   /* ---------------- state ---------------- */
   let db = load();
   let call = null;            // { name, startedAt, answeredAt, source, timer, autoTimer, ticker }
   let audioCtx = null, master = null, ringLoop = null, vbLoop = null;
+  let customBuffer = null, customSource = null;   // 自訂音檔（IndexedDB）
   let wakeLock = null, titleBlink = null, lastNext = "";
 
   function load() {
@@ -420,7 +464,7 @@
       if (!AC) return null;
       audioCtx = new AC();
       master = audioCtx.createGain();
-      master.gain.value = 0.85;
+      master.gain.value = Math.max(0, Math.min(1, db.vol / 100));
       master.connect(audioCtx.destination);
     }
     if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
@@ -429,7 +473,7 @@
   // iOS 要真的播過一次聲音才算解鎖，否則之後（例如預約觸發）會被靜音
   function unlockAudio() {
     const ctx = ensureAudio();
-    if (!ctx) return;
+    if (!ctx) return null;
     try {
       const buf = ctx.createBuffer(1, 1, 22050);
       const src = ctx.createBufferSource();
@@ -437,6 +481,7 @@
       src.connect(ctx.destination);
       src.start(0);
     } catch {}
+    return ctx;
   }
   const audioReady = () => !!audioCtx && audioCtx.state === "running";
   function tone(freq, at, dur, peak) {
@@ -455,17 +500,82 @@
     o.start(at); o.stop(at + dur + 0.05);
     o2.start(at); o2.stop(at + dur * 0.8 + 0.05);
   }
-  function ringCycle(at) {                 // 兩聲一組，像 LINE 的來電節奏
+  // ---- 內建音色：都是即時合成，沒有音檔 ----
+  function lineTone(at) {                  // 兩聲一組，仿 LINE 來電的節奏感
     tone(987.77, at, 0.34, 0.30);          // B5
     tone(783.99, at + 0.17, 0.34, 0.26);   // G5
     tone(987.77, at + 0.52, 0.30, 0.26);
     tone(783.99, at + 0.69, 0.42, 0.22);
+    return 2.3;
   }
+  function bellTone(at) {                  // 傳統電話鈴：快速雙響、帶金屬泛音
+    for (let i = 0; i < 2; i++) {
+      const t = at + i * 0.42;
+      tone(1318.51, t, 0.30, 0.26);        // E6
+      tone(1046.50, t + 0.10, 0.28, 0.22); // C6
+    }
+    return 3.0;
+  }
+  const TONES = { line: lineTone, bell: bellTone };
+
+  // ---- 自訂音檔：存 IndexedDB，不上傳 ----
+  function idb() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open("lineCallSim", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("files");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  }
+  async function idbDo(mode, fn) {
+    const d = await idb();
+    return new Promise((res, rej) => {
+      const tx = d.transaction("files", mode);
+      const req = fn(tx.objectStore("files"));
+      tx.oncomplete = () => res(req && req.result);
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+  const idbPut = (k, v) => idbDo("readwrite", (s) => s.put(v, k));
+  const idbGet = (k) => idbDo("readonly", (s) => s.get(k));
+  const idbDel = (k) => idbDo("readwrite", (s) => s.delete(k));
+
+  async function loadCustomRing() {
+    if (!db.ringName) { customBuffer = null; renderRingChoice(); return; }
+    try {
+      const blob = await idbGet("ring");
+      if (!blob) { customBuffer = null; renderRingChoice(); return; }
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const buf = await blob.arrayBuffer();
+      customBuffer = await ctx.decodeAudioData(buf);
+    } catch { customBuffer = null; }
+    renderRingChoice();
+  }
+
+  function playCustom(at) {
+    if (!customBuffer || !audioCtx) return 2.5;
+    const src = audioCtx.createBufferSource();
+    const g = audioCtx.createGain();
+    src.buffer = customBuffer;
+    g.gain.value = 1;
+    src.connect(g).connect(master);
+    src.start(at);
+    customSource = src;
+    src.onended = () => { if (customSource === src) customSource = null; };
+    return Math.max(1.4, customBuffer.duration) + 0.7;
+  }
+
   function startRingingSound() {
     if (!db.sound) return;
     const ctx = ensureAudio(); if (!ctx) return;
-    ringCycle(ctx.currentTime + 0.05);
-    ringLoop = setInterval(() => { if (audioCtx) ringCycle(audioCtx.currentTime + 0.05); }, 2300);
+    const useCustom = db.tone === "custom" && !!customBuffer;
+    const cycle = useCustom ? playCustom : (TONES[db.tone] || lineTone);
+    const period = Math.round((cycle(ctx.currentTime + 0.05) || 2.5) * 1000);
+    ringLoop = setInterval(() => {
+      if (!audioCtx) return;
+      cycle(audioCtx.currentTime + 0.05);
+    }, Math.max(600, period));
   }
   function startVibration() {
     if (!db.vibe || !navigator.vibrate) return;
@@ -476,6 +586,7 @@
   function stopRingingSound() {
     if (el.soundHint) el.soundHint.hidden = true;
     clearInterval(ringLoop); ringLoop = null;
+    if (customSource) { try { customSource.stop(); } catch {} customSource = null; }
     clearInterval(vbLoop); vbLoop = null;
     if (navigator.vibrate) navigator.vibrate(0);
   }
@@ -661,6 +772,20 @@
     el.ringSecsVal.textContent = `${db.ringSecs} 秒`;
     el.soundToggle.checked = !!db.sound;
     el.vibeToggle.checked = !!db.vibe;
+    el.ringVol.value = String(db.vol);
+    el.ringVolVal.textContent = `${db.vol}%`;
+    renderRingChoice();
+  }
+
+  function renderRingChoice() {
+    el.toneSeg.querySelectorAll("[data-tone]").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.tone === db.tone));
+    });
+    const isCustom = db.tone === "custom";
+    el.customRow.hidden = !isCustom;
+    el.ringName.textContent = db.ringName || "未選擇";
+    el.ringName.style.color = db.ringName ? "" : "var(--muted)";
+    el.btnClearRing.hidden = !db.ringName;
   }
 
   /* ---------------- events ---------------- */
@@ -671,8 +796,60 @@
   });
 
   el.testSound.addEventListener("click", () => {
-    const ctx = ensureAudio(); if (!ctx) return;
-    ringCycle(ctx.currentTime + 0.03);
+    const ctx = unlockAudio() || ensureAudio(); if (!ctx) return;
+    const useCustom = db.tone === "custom" && !!customBuffer;
+    const play = useCustom ? playCustom : (TONES[db.tone] || lineTone);
+    play(ctx.currentTime + 0.03);
+  });
+
+  // ---- 音色切換 ----
+  el.toneSeg.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tone]");
+    if (!b) return;
+    db.tone = b.dataset.tone;
+    if (db.tone === "custom" && db.ringName && !customBuffer) loadCustomRing();
+    save(); renderRingChoice();
+  });
+
+  // ---- 選擇自訂音檔 ----
+  el.ringFile.addEventListener("change", async () => {
+    const f = el.ringFile.files && el.ringFile.files[0];
+    el.ringFile.value = "";
+    if (!f) return;
+    if (!/^audio\//.test(f.type) && !/\.(mp3|m4a|wav|aac|ogg|caf)$/i.test(f.name)) {
+      el.ringName.textContent = "不支援這個格式";
+      return;
+    }
+    if (f.size > 12 * 1024 * 1024) {
+      el.ringName.textContent = "檔案太大（上限 12MB）";
+      return;
+    }
+    const ctx = unlockAudio() || ensureAudio(); if (!ctx) return;
+    try {
+      const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+      customBuffer = buf;
+      await idbPut("ring", f);          // 存原始檔，重開機也能解碼
+      db.ringName = f.name; db.tone = "custom";
+      save(); renderRingChoice();
+      playCustom(ctx.currentTime + 0.03);   // 立刻試聽
+    } catch {
+      el.ringName.textContent = "這個檔案無法解碼，換一個試試";
+      customBuffer = null;
+    }
+  });
+
+  el.btnClearRing.addEventListener("click", async () => {
+    customBuffer = null; db.ringName = "";
+    if (db.tone === "custom") db.tone = "line";
+    save(); renderRingChoice();
+    try { await idbDel("ring"); } catch {}
+  });
+
+  el.ringVol.addEventListener("input", () => {
+    db.vol = Number(el.ringVol.value);
+    el.ringVolVal.textContent = `${db.vol}%`;
+    if (master) master.gain.value = db.vol / 100;
+    save();
   });
 
   el.quick.addEventListener("click", (e) => {
@@ -777,6 +954,7 @@
   renderSchedules();
   renderLog();
   updateStatus();
+  loadCustomRing();
 
   if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) {
     el.installCard.hidden = true;
