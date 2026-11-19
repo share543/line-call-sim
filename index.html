@@ -146,6 +146,87 @@
   }
   .ring-name { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tone-note { font-size: 11px; line-height: 1.55; color: var(--muted); margin: 10px 0 0; }
+
+  /* ---------- contacts ---------- */
+  .contact-list li {
+    display: flex; align-items: center; gap: 11px;
+    padding: 10px 0; border-top: 1px solid var(--line);
+  }
+  .contact-list li:first-child { border-top: 0; }
+  .cavatar {
+    width: 42px; height: 42px; flex: 0 0 auto; border-radius: 50%;
+    display: grid; place-items: center; background-size: cover; background-position: center;
+    background-image: linear-gradient(150deg, #3ddc84, #06C755 55%, #039140);
+    color: #fff; font-size: 17px; font-weight: 600; letter-spacing: 0;
+  }
+  .cavatar.img { background-image: none; }
+  .cavatar.img span { display: none; }
+  .mini {
+    height: 34px; padding: 0 13px; border-radius: 11px; border: 0; flex: 0 0 auto;
+    background: color-mix(in srgb, var(--green) 15%, transparent);
+    color: var(--green-dark); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .mini:active { transform: scale(.96); }
+  @media (prefers-color-scheme: dark) { .mini { color: #4ADE80; } }
+  .edit {
+    width: 32px; height: 32px; flex: 0 0 auto; border-radius: 50%;
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+    font-size: 14px; cursor: pointer; line-height: 1;
+  }
+  .sel {
+    flex: 1; min-width: 0; height: 44px; padding: 0 10px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--bg); color: var(--ink); font: inherit; font-size: 16px;
+    -webkit-appearance: none; appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 16px) 19px, calc(100% - 11px) 19px;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+
+  /* ---------- bottom sheet ---------- */
+  .sheet-layer {
+    position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end;
+    background: rgba(6, 12, 9, .5); opacity: 0; pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .sheet-layer[hidden] { display: none; }
+  .sheet-layer.show { opacity: 1; pointer-events: auto; }
+  .sheet {
+    width: 100%; max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    background: var(--card); border-radius: 22px 22px 0 0;
+    padding: 18px 18px calc(env(safe-area-inset-bottom) + 12px);
+    transform: translateY(14px); transition: transform .26s cubic-bezier(.2,.8,.2,1);
+    box-shadow: 0 -12px 40px -20px rgba(0,0,0,.6);
+  }
+  .sheet-layer.show .sheet { transform: none; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .sheet-foot {
+    position: sticky; bottom: 0; margin-top: 16px;
+    padding: 12px 0 2px; background: linear-gradient(180deg, transparent, var(--card) 30%);
+  }
+  .avatar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .avatar-preview {
+    width: 70px; height: 70px; flex: 0 0 auto; border-radius: 50%;
+    display: grid; place-items: center; background-size: cover; background-position: center;
+    background-image: linear-gradient(150deg, #3ddc84, #06C755 55%, #039140);
+    color: #fff; font-size: 28px; font-weight: 600;
+  }
+  .avatar-preview.img { background-image: none; }
+  .avatar-preview.img span { display: none; }
+  .stack { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+  .danger { color: #C42B22; font-size: 13px; margin-top: 14px; }
+  @media (prefers-color-scheme: dark) { .danger { color: #FF7A72; } }
+  .w62 { min-width: 62px; }
+  .sep { height: 1px; background: var(--line); margin: 16px 0 14px; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 96px);
+    transform: translate(-50%, 10px); z-index: 90; max-width: 86vw;
+    padding: 11px 16px; border-radius: 12px; font-size: 13px; line-height: 1.45;
+    background: #12241a; color: #eaf6ee; box-shadow: 0 10px 30px -12px rgba(0,0,0,.6);
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.err { background: #40130f; color: #FFD9D5; }
   .switch input { width: 20px; height: 20px; accent-color: var(--green); }
 
   /* ---------- lists ---------- */
@@ -203,7 +284,13 @@
     font-size: 42px; font-weight: 600;
     background: linear-gradient(150deg, #3ddc84, #06C755 55%, #039140);
     box-shadow: 0 18px 40px -18px rgba(6,199,85,.9), inset 0 0 0 1px rgba(255,255,255,.22);
-    position: relative;
+    position: relative; background-size: cover; background-position: center;
+  }
+  .avatar.has-img { background-image: none; }
+  .avatar.has-img span { display: none; }
+  .call-sub {
+    margin-top: 12px; font-size: 13px; color: rgba(255,255,255,.7);
+    padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,.1);
   }
   .avatar.ringing::after {
     content: ""; position: absolute; inset: -10px; border-radius: 50%;
@@ -273,6 +360,13 @@
   </div>
 
   <section class="card">
+    <div class="card-head"><h2>通訊錄</h2><span class="hint" id="contactCount">0 位</span></div>
+    <ul class="contact-list" id="contactList"></ul>
+    <div class="empty" id="contactEmpty">還沒有聯絡人，新增一位就能指定頭像與接通語音</div>
+    <button class="btn small primary" id="btnAddContact" style="width:100%;margin-top:12px">＋ 新增聯絡人</button>
+  </section>
+
+  <section class="card">
     <div class="card-head"><h2>預約來電</h2><span class="hint">時間到自動響鈴</span></div>
     <div class="chips" id="quickChips">
       <button data-min="1">1 分鐘後</button>
@@ -287,7 +381,7 @@
     </div>
     <div class="row">
       <span class="hint" style="min-width:52px">誰打來</span>
-      <input type="text" id="schedName" maxlength="12" placeholder="選填，預設用上方名稱" aria-label="來電者">
+      <select class="sel" id="schedWho" aria-label="來電聯絡人，未選則用下方預設名稱"></select>
     </div>
     <ul class="sched-list" id="schedList"></ul>
     <div class="empty" id="schedEmpty">還沒有預約</div>
@@ -296,7 +390,8 @@
   <section class="card">
     <div class="card-head"><h2>來電設定</h2></div>
     <div class="row">
-      <input type="text" id="nameInput" maxlength="12" placeholder="來電顯示名稱" aria-label="來電顯示名稱">
+      <span class="hint w62">預設來電</span>
+      <input type="text" id="nameInput" maxlength="12" placeholder="未選聯絡人時使用" aria-label="預設來電顯示名稱">
     </div>
     <div class="row">
       <span class="hint" style="min-width:62px">響鈴秒數</span>
@@ -334,6 +429,22 @@
       <input type="range" id="ringVol" min="0" max="100" step="5" aria-label="鈴聲音量">
       <span class="hint" id="ringVolVal" style="min-width:44px;text-align:right">85%</span>
     </div>
+
+    <div class="sep"></div>
+    <div class="card-head" style="margin-bottom:10px"><h2 style="font-size:14px">接通語音</h2><span class="hint">接聽後播放</span></div>
+    <div class="row">
+      <label class="btn small ghost file-btn">
+        選擇音檔
+        <input type="file" id="voiceFile" class="sr-file" accept=".mp3,.m4a,.m4r,.mp4,.aac,.wav,.aif,.aiff,.caf,.flac,.ogg,.oga,.opus,audio/mpeg,audio/mp4,audio/x-m4a,audio/x-m4r,audio/aac,audio/wav,audio/x-wav,audio/flac,audio/ogg">
+      </label>
+      <span class="ring-name" id="voiceName">未設定（接通後沒有聲音）</span>
+      <button class="del" id="btnClearVoice" aria-label="移除接通語音" hidden>×</button>
+    </div>
+    <div class="ring-status" id="voiceStatus" hidden></div>
+    <p class="tone-note">
+      模擬對方在電話裡說話：接聽後播一次，播完就停。沒設定就不會有任何聲音。
+      <button class="link" id="voiceAny" type="button">選不到 mp3？改用不篩選的選擇器</button>
+    </p>
   </section>
 
   <section class="card">
@@ -362,9 +473,10 @@
   <div class="call-inner">
     <div class="call-top">
       <div class="call-kind" id="callKind">LINE 來電</div>
-      <div class="avatar" id="callAvatar">媽</div>
+      <div class="avatar" id="callAvatar"><span id="callAvatarText">媽</span></div>
       <p class="caller-name" id="callerName">媽媽</p>
       <div class="call-status" id="callStatus">來電中…</div>
+      <div class="call-sub" id="callSub" hidden>🔊 對方正在說話</div>
       <button class="sound-hint" id="soundHint" hidden>🔔 點一下播放鈴聲</button>
     </div>
 
@@ -414,16 +526,62 @@
   </div>
 </div>
 
+<!-- ================= 聯絡人編輯 ================= -->
+<div class="sheet-layer" id="contactSheet" hidden role="dialog" aria-modal="true" aria-label="聯絡人設定">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="sheetTitle">新增聯絡人</h2>
+      <button class="link" id="sheetCancel" type="button">取消</button>
+    </div>
+
+    <div class="avatar-row">
+      <div class="avatar-preview" id="cAvatarPreview"><span id="cAvatarText">?</span></div>
+      <div class="stack">
+        <label class="btn small ghost file-btn">
+          選擇頭像
+          <input type="file" id="cAvatarFile" class="sr-file" accept="image/*">
+        </label>
+        <button class="link" id="cAvatarClear" type="button" hidden>移除頭像</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="hint w62">名稱</span>
+      <input type="text" id="cName" maxlength="12" placeholder="例：媽媽" aria-label="聯絡人名稱">
+    </div>
+
+    <div class="row">
+      <span class="hint w62">頭像字</span>
+      <input type="text" id="cInitial" maxlength="2" placeholder="沒有照片時顯示的字" aria-label="頭像文字">
+    </div>
+    <p class="tone-note">沒有選照片時，來電畫面會顯示這個字（預設取名稱第一個字）。</p>
+
+    <div class="sep"></div>
+    <div class="card-head" style="margin-bottom:10px"><h2 style="font-size:14px">預約來電</h2><span class="hint" id="cSchedCount"></span></div>
+    <div class="row">
+      <input type="time" id="cSchedTime" aria-label="預約時間">
+      <button class="btn small primary" id="cSchedAdd">加入預約</button>
+    </div>
+    <ul class="sched-list" id="cSchedList"></ul>
+    <div class="empty" id="cSchedEmpty" style="font-size:12px">這位聯絡人還沒有預約</div>
+
+    <div class="sheet-foot">
+      <button class="btn primary" id="cSave" style="width:100%">儲存</button>
+      <button class="link danger" id="cDelete" type="button" style="width:100%;text-align:center" hidden>刪除這位聯絡人</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (() => {
   "use strict";
   const LS_KEY = "lineCallSim.v1";
-  const DEFAULTS = { name: "媽媽", ringSecs: 25, sound: true, vibe: true, tone: "line", vol: 85, schedules: [], log: [] };
+  const DEFAULTS = { name: "媽媽", ringSecs: 25, sound: true, vibe: true, tone: "line", vol: 85, schedules: [], log: [], contacts: [], nextCid: 1 };
   const $ = (id) => document.getElementById(id);
   const el = {
     statusText: $("statusText"), beacon: $("beacon"), nextUp: $("nextUp"),
     ringNow: $("btnRingNow"), testSound: $("btnTestSound"),
-    quick: $("quickChips"), timeInput: $("timeInput"), schedName: $("schedName"),
+    quick: $("quickChips"), timeInput: $("timeInput"), schedWho: $("schedWho"),
     btnSchedule: $("btnSchedule"), schedList: $("schedList"), schedEmpty: $("schedEmpty"),
     nameInput: $("nameInput"), ringSecs: $("ringSecs"), ringSecsVal: $("ringSecsVal"),
     soundToggle: $("soundToggle"), vibeToggle: $("vibeToggle"),
@@ -438,6 +596,21 @@
     ringFile: $("ringFile"), ringName: $("ringName"), btnClearRing: $("btnClearRing"),
     btnShowAll: $("btnShowAll"), ringHelp: $("ringHelp"), ringStatus: $("ringStatus"),
     ringVol: $("ringVol"), ringVolVal: $("ringVolVal"),
+    voiceFile: $("voiceFile"), voiceName: $("voiceName"), btnClearVoice: $("btnClearVoice"),
+    voiceStatus: $("voiceStatus"), voiceAny: $("voiceAny"),
+    // 通訊錄
+    contactList: $("contactList"), contactEmpty: $("contactEmpty"), contactCount: $("contactCount"),
+    btnAddContact: $("btnAddContact"), schedWho: $("schedWho"),
+    // 聯絡人 sheet
+    sheet: $("contactSheet"), sheetTitle: $("sheetTitle"), sheetCancel: $("sheetCancel"),
+    cAvatarPreview: $("cAvatarPreview"), cAvatarText: $("cAvatarText"),
+    cAvatarFile: $("cAvatarFile"), cAvatarClear: $("cAvatarClear"),
+    cName: $("cName"), cInitial: $("cInitial"),
+    cSave: $("cSave"), cDelete: $("cDelete"),
+    cSchedTime: $("cSchedTime"), cSchedAdd: $("cSchedAdd"),
+    cSchedList: $("cSchedList"), cSchedEmpty: $("cSchedEmpty"), cSchedCount: $("cSchedCount"),
+    // 來電畫面
+    callAvatarText: $("callAvatarText"), callSub: $("callSub"),
   };
 
   /* ---------------- state ---------------- */
@@ -445,6 +618,8 @@
   let call = null;            // { name, startedAt, answeredAt, source, timer, autoTimer, ticker }
   let audioCtx = null, master = null, ringLoop = null, vbLoop = null;
   let customBuffer = null, customSource = null;   // 自訂音檔（IndexedDB）
+  let editing = null;                              // {id, avatar, initial, scheds[], removedIds[]}
+  let voiceBuffer = null, voiceSource = null;      // 接通語音（全域）
   let wakeLock = null, titleBlink = null, lastNext = "";
 
   function load() {
@@ -453,6 +628,7 @@
       return Object.assign({}, DEFAULTS, raw, {
         schedules: Array.isArray(raw.schedules) ? raw.schedules : [],
         log: Array.isArray(raw.log) ? raw.log : [],
+        contacts: Array.isArray(raw.contacts) ? raw.contacts : [],
       });
     } catch { return Object.assign({}, DEFAULTS); }
   }
@@ -478,16 +654,40 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   /* ---------------- audio ---------------- */
+  function buildAudio() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    audioCtx = new AC();
+    master = audioCtx.createGain();
+    master.gain.value = Math.max(0, Math.min(1, db.vol / 100));
+    master.connect(audioCtx.destination);
+    return audioCtx;
+  }
+
   function ensureAudio() {
-    if (!audioCtx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      audioCtx = new AC();
-      master = audioCtx.createGain();
-      master.gain.value = Math.max(0, Math.min(1, db.vol / 100));
-      master.connect(audioCtx.destination);
+    if (!audioCtx) buildAudio();
+    if (!audioCtx) return null;
+    // iOS 會把 context 丟進 suspended / interrupted，第二次來電就沒聲。
+    // resume() 是 async，這裡只發出請求，實際狀態由 ensureRunning() 在每次響鈴前確認。
+    if (audioCtx.state !== "running") audioCtx.resume().catch(() => {});
+    return audioCtx;
+  }
+
+  // 在真正要出聲之前呼叫：狀態不對就重建一個乾淨的 context。
+  function ensureRunning() {
+    if (!audioCtx) { buildAudio(); return audioCtx; }
+    if (audioCtx.state === "running") return audioCtx;
+    audioCtx.resume().catch(() => {});
+    if (audioCtx.state !== "running") {
+      // 重建：iOS 上被中斷的 context 常常救不回來，換一個最省事
+      try { audioCtx.close(); } catch {}
+      audioCtx = null; master = null;
+      buildAudio();
+      // 舊 context 解出來的 buffer 取樣率可能不同，重解一次避免變調
+      customBuffer = null; voiceBuffer = null;
+      if (db.ringName) loadCustomRing();
+      if (db.voiceName) loadVoice();
     }
-    if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
     return audioCtx;
   }
   // iOS 要真的播過一次聲音才算解鎖，否則之後（例如預約觸發）會被靜音
@@ -575,6 +775,7 @@
 
   function playCustom(at) {
     if (!customBuffer || !audioCtx) return 2.5;
+    if (audioCtx.state !== "running") ensureRunning();
     const src = audioCtx.createBufferSource();
     const g = audioCtx.createGain();
     src.buffer = customBuffer;
@@ -586,9 +787,272 @@
     return Math.max(1.4, customBuffer.duration) + 0.7;
   }
 
+  /* ---------------- 通訊錄 ---------------- */
+  const AUDIO_EXT = /\.(mp3|m4a|m4r|mp4|aac|wav|wave|aif|aiff|caf|flac|ogg|oga|opus|webm|amr)$/i;
+  const byId = (id) => db.contacts.find((c) => c.id === id) || null;
+
+  function newCid() { const n = db.nextCid || 1; db.nextCid = n + 1; return "c" + n; }
+
+  // 頭像：縮成 200px 方形 JPEG 存進 localStorage（比原圖小很多）
+  async function shrinkAvatar(file) {
+    const dataUrl = await new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result);
+      fr.onerror = rej;
+      fr.readAsDataURL(file);
+    });
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = dataUrl;
+    });
+    const S = 200;
+    const c = document.createElement("canvas");
+    c.width = S; c.height = S;
+    const g = c.getContext("2d");
+    const side = Math.min(img.width, img.height);          // 置中正方形裁切
+    g.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
+    return c.toDataURL("image/jpeg", 0.82);
+  }
+
+  function contactOf(s) {
+    if (s.cid) { const c = byId(s.cid); if (c) return c; }
+    return null;
+  }
+
+  function callerFor(s) {
+    const c = s && contactOf(s);
+    if (c) return { name: c.name, avatar: c.avatar || "", cid: c.id };
+    const fallback = (s && s.name) || db.name || "未知號碼";
+    return { name: fallback, avatar: "", cid: null };
+  }
+
+  function renderContacts() {
+    const list = db.contacts;
+    el.contactCount.textContent = `${list.length} 位`;
+    el.contactEmpty.hidden = list.length > 0;
+    el.contactList.innerHTML = list.map((c) => {
+      const initial = (c.initial || [...(c.name || "?")][0] || "?");
+      const av = c.avatar
+        ? `<span class="cavatar img" style="background-image:url('${c.avatar}')"></span>`
+        : `<span class="cavatar">${esc(initial)}</span>`;
+      return `<li>
+        ${av}
+        <span class="who">
+          <span class="nm">${esc(c.name || "未命名")}</span>
+          <span class="cd">${c.avatar ? "已設定頭像" : "文字頭像"}</span>
+        </span>
+        <button class="mini" data-call="${c.id}">來電</button>
+        <button class="edit" data-edit="${c.id}" aria-label="編輯 ${esc(c.name)}">✎</button>
+      </li>`;
+    }).join("");
+    renderSchedWho();
+  }
+
+  function renderSchedWho() {
+    const cur = el.schedWho.value;
+    const opts = [`<option value="">預設名稱</option>`]
+      .concat(db.contacts.map((c) => `<option value="${c.id}">${esc(c.name || "未命名")}</option>`));
+    el.schedWho.innerHTML = opts.join("");
+    if (cur && [...el.schedWho.options].some((o) => o.value === cur)) el.schedWho.value = cur;
+  }
+
+  function showAvatarIn(node, span, c) {
+    if (c && c.avatar) {
+      node.style.backgroundImage = `url('${c.avatar}')`;
+      node.classList.add("img");
+    } else {
+      node.style.backgroundImage = "";
+      node.classList.remove("img");
+      if (span) span.textContent = c ? (c.initial || [...(c.name || "?")][0] || "?") : "?";
+    }
+  }
+
+  /* ---- toast ---- */
+  let toastTimer = null;
+  function showToast(text, isErr) {
+    let t = document.getElementById("toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "toast";
+      t.className = "toast";
+      document.body.appendChild(t);
+    }
+    t.textContent = text;
+    t.classList.toggle("err", !!isErr);
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+
+  /* ---- sheet 內的預約管理 ---- */
+  // 把 <input type="time"> 的值轉成時間戳：
+  // 本分鐘內（含已過幾秒）→ 立刻；已過去 → 明天
+  function timeToStamp(t) {
+    const [h, m] = t.split(":").map(Number);
+    const d = new Date(); d.setHours(h, m, 0, 0);
+    const now = Date.now();
+    if (d.getTime() + 60000 > now) return Math.max(d.getTime(), now + 800);
+    d.setDate(d.getDate() + 1);
+    return d.getTime();
+  }
+
+  function renderSheetSched() {
+    if (!editing) return;
+    const mine = editing.scheds.slice().sort((a, b) => a.at - b.at);
+    el.cSchedEmpty.hidden = mine.length > 0;
+    el.cSchedEmpty.textContent = "這位聯絡人還沒有預約";
+    el.cSchedCount.textContent = mine.length ? `${mine.length} 筆` : "";
+    el.cSchedList.innerHTML = mine.map((s) => `
+      <li>
+        <span class="when">${clock(s.at)}</span>
+        <span class="who">
+          <span class="nm">${dayLabel(s.at)}</span>
+          <span class="cd">剩 ${remainLabel(s.at - Date.now())}</span>
+        </span>
+        <button class="del" data-csdel="${s.id}" aria-label="刪除預約">×</button>
+      </li>`).join("");
+  }
+
+  /* ---- 編輯 sheet ---- */
+  function openSheet(cid) {
+    const c = cid ? byId(cid) : null;
+    editing = {
+      id: c ? c.id : null,
+      avatar: c ? (c.avatar || "") : "",
+      scheds: c ? db.schedules.filter((s) => s.cid === c.id).map((s) => ({ ...s })) : [],
+      removedIds: [],
+    };
+    el.sheetTitle.textContent = c ? "編輯聯絡人" : "新增聯絡人";
+    el.cName.value = c ? c.name : "";
+    el.cInitial.value = c ? (c.initial || "") : "";
+    el.cDelete.hidden = !c;
+    showAvatarIn(el.cAvatarPreview, el.cAvatarText, c);
+    el.cSchedTime.value = "";
+    renderSheetSched();
+    el.sheet.hidden = false;
+    requestAnimationFrame(() => el.sheet.classList.add("show"));
+    setTimeout(() => el.cName.focus(), 260);
+  }
+
+  function closeSheet() {
+    el.sheet.classList.remove("show");
+    setTimeout(() => { el.sheet.hidden = true; }, 220);
+    editing = null;
+  }
+
+  async function saveContact() {
+    const name = el.cName.value.trim().slice(0, 12);
+    if (!name) { el.cName.focus(); return; }
+
+    if (!editing.id) editing.id = newCid();
+    let c = byId(editing.id);
+    if (!c) {
+      c = { id: editing.id, name, avatar: "", initial: "" };
+      db.contacts.push(c);
+    }
+    c.name = name;
+    c.initial = el.cInitial.value.trim().slice(0, 2);
+    if (editing.avatar !== undefined) c.avatar = editing.avatar;
+
+    // 套用預約變更：先移除被刪的，再補上新的
+    if (editing.removedIds.length) {
+      db.schedules = db.schedules.filter((s) => !editing.removedIds.includes(s.id));
+    }
+    for (const s of editing.scheds) {
+      if (!db.schedules.some((x) => x.id === s.id)) {
+        db.schedules.push({ id: s.id, at: s.at, cid: c.id, name: c.name });
+      }
+    }
+    db.schedules.sort((a, b) => a.at - b.at);
+
+    save(); renderContacts(); renderSchedules(); updateStatus(); closeSheet();
+  }
+
+  function deleteContact() {
+    if (!editing || !editing.id) return;
+    const id = editing.id;
+    db.contacts = db.contacts.filter((x) => x.id !== id);
+    db.schedules = db.schedules.filter((s) => s.cid !== id);   // 預約跟著帶走
+    save();
+    renderContacts(); renderSchedules(); updateStatus(); closeSheet();
+  }
+
+  /* ---------------- 接通語音 ---------------- */
+  async function loadVoice() {
+    if (!db.voiceName) { voiceBuffer = null; return; }
+    try {
+      const blob = await idbGet("voice");
+      if (!blob) { voiceBuffer = null; return; }
+      const ctx = ensureAudio(); if (!ctx) return;
+      voiceBuffer = await ctx.decodeAudioData(await blob.arrayBuffer());
+    } catch { voiceBuffer = null; }
+    renderVoice();
+  }
+
+  function playVoice() {
+    if (!voiceBuffer || !audioCtx) return false;
+    try {
+      const src = audioCtx.createBufferSource();
+      const g = audioCtx.createGain();
+      g.gain.value = 1;
+      src.buffer = voiceBuffer;
+      src.connect(g).connect(master);
+      src.start();
+      voiceSource = src;
+      el.callSub.hidden = false;
+      src.onended = () => { if (voiceSource === src) voiceSource = null; el.callSub.hidden = true; };
+      return true;
+    } catch { return false; }
+  }
+
+  function stopVoice() {
+    if (voiceSource) { try { voiceSource.stop(); } catch {} voiceSource = null; }
+    if (el.callSub) el.callSub.hidden = true;
+  }
+
+  function renderVoice() {
+    const has = !!db.voiceName;
+    el.voiceName.textContent = has ? db.voiceName : "未設定（接通後沒有聲音）";
+    el.voiceName.style.color = has ? "" : "var(--muted)";
+    el.btnClearVoice.hidden = !has;
+  }
+
+  function voiceMsg(text, kind) {
+    el.voiceStatus.hidden = !text;
+    el.voiceStatus.textContent = text || "";
+    el.voiceStatus.classList.toggle("err", kind === "err");
+    el.voiceStatus.classList.toggle("ok", kind === "ok");
+  }
+
+  async function acceptVoice(f) {
+    const looksAudio = /^audio\//.test(f.type) || /^video\/mp4$/.test(f.type) || AUDIO_EXT.test(f.name);
+    if (!looksAudio) { voiceMsg(`「${f.name}」不是音檔。`, "err"); return; }
+    if (f.size > 12 * 1024 * 1024) { voiceMsg("檔案超過 12MB，請剪短一點。", "err"); return; }
+    const ctx = unlockAudio() || ensureAudio();
+    if (!ctx) { voiceMsg("瀏覽器不支援音訊。", "err"); return; }
+    voiceMsg("解碼中…");
+    try {
+      const raw = await f.arrayBuffer();
+      const buf = await new Promise((res, rej) => {
+        const p = ctx.decodeAudioData(raw, res, rej);
+        if (p && typeof p.then === "function") p.then(res, rej);
+      });
+      voiceBuffer = buf;
+      await idbPut("voice", f);
+      db.voiceName = f.name;
+      save(); renderVoice();
+      voiceMsg(`已設定「${f.name}」（${buf.duration.toFixed(1)} 秒），接聽後會播放。`, "ok");
+    } catch {
+      voiceBuffer = null;
+      voiceMsg("無法解碼，請換成 m4a 或 mp3。", "err");
+    }
+  }
+
   function startRingingSound() {
     if (!db.sound) return;
-    const ctx = ensureAudio(); if (!ctx) return;
+    const ctx = ensureRunning(); if (!ctx) return;
     const useCustom = db.tone === "custom" && !!customBuffer;
     const cycle = useCustom ? playCustom : (TONES[db.tone] || lineTone);
     const period = Math.round((cycle(ctx.currentTime + 0.05) || 2.5) * 1000);
@@ -634,13 +1098,23 @@
   }
 
   /* ---------------- incoming call ---------------- */
-  function startIncoming(name, source) {
+  function startIncoming(spec, source) {
     if (call) return;
-    const who = (name || db.name || "未知號碼").trim() || "未知號碼";
-    call = { name: who, startedAt: Date.now(), answeredAt: null, source, timer: null, autoTimer: null, ticker: null };
+    // spec 可以是字串（舊路徑）或 { cid } / { name }
+    const s = typeof spec === "string" ? { name: spec } : (spec || {});
+    const who = callerFor(s);
+    const name = (who.name || db.name || "未知號碼").trim() || "未知號碼";
+    call = { name, cid: who.cid, avatar: who.avatar, startedAt: Date.now(), answeredAt: null, source, timer: null, autoTimer: null, ticker: null };
 
-    el.callerName.textContent = who;
-    el.callAvatar.textContent = [...who][0] || "?";
+    el.callerName.textContent = name;
+    el.callAvatarText.textContent = [...name][0] || "?";
+    if (who.avatar) {
+      el.callAvatar.style.backgroundImage = `url('${who.avatar}')`;
+      el.callAvatar.classList.add("has-img");
+    } else {
+      el.callAvatar.style.backgroundImage = "";
+      el.callAvatar.classList.remove("has-img");
+    }
     el.callKind.textContent = "LINE 來電";
     el.callStatus.textContent = "來電中…";
     el.callAvatar.classList.add("ringing");
@@ -651,8 +1125,11 @@
     el.layer.hidden = false;
     requestAnimationFrame(() => el.layer.classList.add("show"));
 
+    // 每次來電都重新確認音訊可用（iOS 第二次常被系統中斷）
+    ensureRunning();
     startRingingSound(); startVibration(); keepAwake(true);
     el.soundHint.hidden = audioReady() || !db.sound;
+    if (!el.soundHint.hidden) el.soundHint.textContent = "🔔 點一下播放鈴聲";
     updateStatus();
 
     // 標題閃爍（背景分頁也看得到）
@@ -675,6 +1152,7 @@
     el.callStatus.textContent = "00:00";
     blip(660, 0.12); setTimeout(() => blip(880, 0.16), 110);
     clearInterval(titleBlink); titleBlink = null; document.title = "通話中";
+    playVoice();                            // 接起來就說話
     call.ticker = setInterval(() => {
       const s = Math.floor((Date.now() - call.answeredAt) / 1000);
       el.callStatus.textContent = `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
@@ -685,13 +1163,14 @@
   function finish(result) {
     if (!call) return;
     stopRingingSound();
+    stopVoice();
     clearTimeout(call.autoTimer);
     clearInterval(call.ticker);
     clearInterval(titleBlink); titleBlink = null;
     document.title = "來電模擬器";
 
     const dur = call.answeredAt ? Math.round((Date.now() - call.answeredAt) / 1000) : 0;
-    db.log.unshift({ at: call.startedAt, name: call.name, result, dur });
+    db.log.unshift({ at: call.startedAt, name: call.name, cid: call.cid || null, result, dur });
     db.log = db.log.slice(0, 20);
     save();
 
@@ -712,9 +1191,12 @@
   }
 
   /* ---------------- scheduling ---------------- */
-  function addSchedule(at, name) {
-    const who = (name || db.name || "").trim();
-    db.schedules.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at, name: who });
+  function addSchedule(at, cid) {
+    const c = cid ? byId(cid) : null;
+    db.schedules.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      at, cid: c ? c.id : null, name: c ? c.name : "",
+    });
     db.schedules.sort((a, b) => a.at - b.at);
     save(); renderSchedules(); updateStatus();
   }
@@ -735,7 +1217,7 @@
     if (due) {
       db.schedules = db.schedules.filter((s) => s.id !== due.id);
       save(); renderSchedules();
-      startIncoming(due.name, "scheduled");
+      startIncoming({ cid: due.cid, name: due.name }, "scheduled");
     }
   }
 
@@ -752,22 +1234,29 @@
     const nxt = [...db.schedules].sort((a, b) => a.at - b.at)[0];
     let text;
     if (!nxt) text = "尚無預約來電";
-    else text = `${dayLabel(nxt.at)} ${clock(nxt.at)} ・ ${nxt.name || db.name || "未知號碼"} ・ 剩 ${remainLabel(nxt.at - Date.now())}`;
+    else text = `${dayLabel(nxt.at)} ${clock(nxt.at)} ・ ${callerFor(nxt).name} ・ 剩 ${remainLabel(nxt.at - Date.now())}`;
     if (text !== lastNext) { el.nextUp.textContent = text; lastNext = text; }
   }
 
   function renderSchedules() {
     const list = [...db.schedules].sort((a, b) => a.at - b.at);
     el.schedEmpty.hidden = list.length > 0;
-    el.schedList.innerHTML = list.map((s) => `
-      <li>
+    el.schedList.innerHTML = list.map((s) => {
+      const who = callerFor(s);
+      const initial = [...(who.name || "?")][0] || "?";
+      const av = who.avatar
+        ? `<span class="cavatar img" style="background-image:url('${who.avatar}')"></span>`
+        : `<span class="cavatar">${esc(initial)}</span>`;
+      return `<li>
+        ${av}
         <span class="when">${clock(s.at)}</span>
         <span class="who">
-          <span class="nm">${esc(s.name || db.name || "未知號碼")}</span>
+          <span class="nm">${esc(who.name)}</span>
           <span class="cd" data-cd="${s.id}">${dayLabel(s.at)}・剩 ${remainLabel(s.at - Date.now())}</span>
         </span>
         <button class="del" data-del="${s.id}" aria-label="刪除預約">×</button>
-      </li>`).join("");
+      </li>`;
+    }).join("");
   }
 
   function renderLog() {
@@ -776,7 +1265,13 @@
     el.logList.innerHTML = db.log.map((l) => {
       const [cls, txt] = label[l.result] || label.miss;
       const extra = l.result === "answered" ? `・${pad(Math.floor(l.dur / 60))}:${pad(l.dur % 60)}` : "";
+      const c = l.cid ? byId(l.cid) : null;
+      const initial = [...(l.name || "?")][0] || "?";
+      const av = c && c.avatar
+        ? `<span class="cavatar img" style="background-image:url('${c.avatar}')"></span>`
+        : `<span class="cavatar">${esc(initial)}</span>`;
       return `<li>
+        ${av}
         <span class="who">
           <span class="nm">${esc(l.name)}</span>
           <span class="cd">${dayLabel(l.at)} ${clock(l.at)}${extra}</span>
@@ -795,6 +1290,7 @@
     el.ringVol.value = String(db.vol);
     el.ringVolVal.textContent = `${db.vol}%`;
     renderRingChoice();
+    renderVoice();
   }
 
   function renderRingChoice() {
@@ -812,7 +1308,7 @@
   el.ringNow.addEventListener("click", () => {
     unlockAudio();
     if (call) return;
-    startIncoming(db.name, "manual");
+    startIncoming({ name: db.name }, "manual");
   });
 
   el.testSound.addEventListener("click", () => {
@@ -832,8 +1328,6 @@
   });
 
   // ---- 選擇自訂音檔 ----
-  const AUDIO_EXT = /\.(mp3|m4a|m4r|mp4|aac|wav|wave|aif|aiff|caf|flac|ogg|oga|opus|webm|amr)$/i;
-
   function ringMsg(text, kind) {
     el.ringStatus.hidden = !text;
     el.ringStatus.textContent = text || "";
@@ -916,21 +1410,113 @@
     save();
   });
 
+  /* ---- 通訊錄事件 ---- */
+  el.btnAddContact.addEventListener("click", () => openSheet(null));
+
+  el.contactList.addEventListener("click", (e) => {
+    const callBtn = e.target.closest("[data-call]");
+    if (callBtn) {
+      unlockAudio();
+      if (call) return;
+      startIncoming({ cid: callBtn.dataset.call }, "manual");
+      return;
+    }
+    const editBtn = e.target.closest("[data-edit]");
+    if (editBtn) openSheet(editBtn.dataset.edit);
+  });
+
+  el.sheetCancel.addEventListener("click", closeSheet);
+  el.sheet.addEventListener("click", (e) => { if (e.target === el.sheet) closeSheet(); });
+
+  el.cAvatarFile.addEventListener("change", async () => {
+    const f = el.cAvatarFile.files && el.cAvatarFile.files[0];
+    el.cAvatarFile.value = "";
+    if (!f || !editing) return;
+    if (!/^image\//.test(f.type)) { avatarMsg("頭像請選圖片檔。", "err"); return; }
+    try {
+      const small = await shrinkAvatar(f);
+      editing.avatar = small;
+      showAvatarIn(el.cAvatarPreview, el.cAvatarText, { avatar: small });
+      el.cAvatarClear.hidden = false;
+    } catch { avatarMsg("這張圖讀不進來，換一張試試。", "err"); }
+  });
+
+  el.cAvatarClear.addEventListener("click", () => {
+    if (!editing) return;
+    editing.avatar = "";
+    showAvatarIn(el.cAvatarPreview, el.cAvatarText, null);
+    el.cAvatarClear.hidden = true;
+  });
+
+  function avatarMsg(text, kind) {
+    if (!text) return;
+    showToast(text, kind === "err");
+  }
+
+  el.cSchedAdd.addEventListener("click", () => {
+    if (!editing) return;
+    const t = el.cSchedTime.value;
+    if (!t) { el.cSchedTime.focus(); return; }
+    const at = timeToStamp(t);
+    editing.scheds.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at, isNew: true });
+    editing.scheds.sort((a, b) => a.at - b.at);
+    el.cSchedTime.value = "";
+    renderSheetSched();
+    showToast(`已加入 ${dayLabel(at)} ${clock(at)}（按儲存才生效）`);
+  });
+
+  el.cSchedList.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-csdel]");
+    if (!b || !editing) return;
+    const id = b.dataset.csdel;
+    const target = editing.scheds.find((s) => s.id === id);
+    editing.scheds = editing.scheds.filter((s) => s.id !== id);
+    if (target && !target.isNew) editing.removedIds.push(id);
+    renderSheetSched();
+  });
+
+  /* ---- 接通語音事件 ---- */
+  el.voiceFile.addEventListener("change", () => {
+    const f = el.voiceFile.files && el.voiceFile.files[0];
+    el.voiceFile.value = "";
+    if (f) acceptVoice(f);
+  });
+
+  el.voiceAny.addEventListener("click", (e) => {
+    e.preventDefault();
+    const any = document.createElement("input");
+    any.type = "file";
+    any.style.display = "none";
+    document.body.appendChild(any);
+    any.addEventListener("change", () => {
+      const f = any.files && any.files[0];
+      any.remove();
+      if (f) acceptVoice(f);
+    });
+    any.click();
+  });
+
+  el.btnClearVoice.addEventListener("click", async () => {
+    voiceBuffer = null; db.voiceName = "";
+    save(); renderVoice(); voiceMsg("");
+    try { await idbDel("voice"); } catch {}
+  });
+
+  el.cSave.addEventListener("click", saveContact);
+  el.cDelete.addEventListener("click", deleteContact);
+
   el.quick.addEventListener("click", (e) => {
     const b = e.target.closest("button[data-min]");
     if (!b) return;
-    addSchedule(Date.now() + Number(b.dataset.min) * 60000, el.schedName.value);
-    el.schedName.value = "";
+    addSchedule(Date.now() + Number(b.dataset.min) * 60000, el.schedWho.value);
   });
 
   el.btnSchedule.addEventListener("click", () => {
     const t = el.timeInput.value;
     if (!t) { el.timeInput.focus(); return; }
-    const [h, m] = t.split(":").map(Number);
-    const d = new Date(); d.setHours(h, m, 0, 0);
-    if (d.getTime() <= Date.now() + 5000) d.setDate(d.getDate() + 1);
-    addSchedule(d.getTime(), el.schedName.value);
-    el.schedName.value = "";
+    const at = timeToStamp(t);
+    addSchedule(at, el.schedWho.value);
+    showToast(`已排定 ${dayLabel(at)} ${clock(at)} 來電`);
   });
 
   el.schedList.addEventListener("click", (e) => {
@@ -961,6 +1547,7 @@
     unlockAudio();
     setTimeout(() => {
       if (!audioReady()) {
+        ensureRunning();
         el.soundHint.textContent = "🔇 還是沒聲音？請確認側邊靜音鍵已關閉、音量已調高";
         return;
       }
@@ -973,6 +1560,7 @@
     if (!call || call.answeredAt) return;
     if (!audioReady()) {
       unlockAudio();
+      ensureRunning();
       setTimeout(() => {
         if (call && !call.answeredAt && !ringLoop) { startRingingSound(); el.soundHint.hidden = true; }
       }, 120);
@@ -998,6 +1586,7 @@
   });
 
   document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !el.sheet.hidden) { closeSheet(); return; }
     if (!call) return;
     if (e.key === "Escape") finish(call.answeredAt ? "answered" : "declined");
     if (e.key === "Enter") call.answeredAt ? finish("answered") : answer();
@@ -1005,8 +1594,12 @@
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
+      ensureRunning();          // 切回前景時修復被中斷的音訊
       tick();
-      if (call && !call.answeredAt) keepAwake(true);
+      if (call && !call.answeredAt) {
+        keepAwake(true);
+        if (!ringLoop) startRingingSound();   // 響鈴被中斷就重啟
+      }
     }
   });
 
@@ -1015,10 +1608,12 @@
 
   /* ---------------- init ---------------- */
   renderSettings();
+  renderContacts();
   renderSchedules();
   renderLog();
   updateStatus();
   loadCustomRing();
+  loadVoice();
 
   if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) {
     el.installCard.hidden = true;
@@ -1032,6 +1627,11 @@
     unlockAudio();
     document.removeEventListener("pointerdown", unlock);
   }, { once: true });
+
+  // 之後每次觸控都確認音訊還活著：iOS 中斷後只有使用者手勢能救回來
+  document.addEventListener("pointerdown", () => {
+    if (!audioReady()) ensureRunning();
+  }, { passive: true });
 })();
 </script>
 </body>
