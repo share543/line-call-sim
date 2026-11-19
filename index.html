@@ -180,6 +180,13 @@
   @keyframes halo { 0% { transform: scale(.92); opacity: .8 } 100% { transform: scale(1.45); opacity: 0 } }
   .caller-name { font-size: 30px; font-weight: 600; letter-spacing: -.01em; margin: 0; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .call-status { font-size: 15px; color: rgba(255,255,255,.62); font-variant-numeric: tabular-nums; margin-top: 6px; }
+  .sound-hint {
+    margin-top: 20px; padding: 10px 18px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.1);
+    color: #fff; font: inherit; font-size: 14px; font-weight: 600;
+    animation: nudge 2.6s ease-in-out infinite;
+  }
+  @keyframes nudge { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
   .call-bottom { flex: 0 0 auto; padding-bottom: 6px; }
   .call-actions { display: flex; justify-content: space-around; align-items: flex-start; }
   .action { display: flex; flex-direction: column; align-items: center; gap: 9px; }
@@ -299,6 +306,7 @@
       <div class="avatar" id="callAvatar">媽</div>
       <p class="caller-name" id="callerName">媽媽</p>
       <div class="call-status" id="callStatus">來電中…</div>
+      <button class="sound-hint" id="soundHint" hidden>🔔 點一下播放鈴聲</button>
     </div>
 
     <div class="call-bottom">
@@ -366,7 +374,7 @@
     callerName: $("callerName"), callStatus: $("callStatus"),
     ringActions: $("ringActions"), activeActions: $("activeActions"),
     accept: $("btnAccept"), decline: $("btnDecline"), hangup: $("btnHangup"),
-    mute: $("btnMute"), speaker: $("btnSpeaker"),
+    mute: $("btnMute"), speaker: $("btnSpeaker"), soundHint: $("soundHint"),
   };
 
   /* ---------------- state ---------------- */
@@ -418,6 +426,19 @@
     if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
     return audioCtx;
   }
+  // iOS 要真的播過一次聲音才算解鎖，否則之後（例如預約觸發）會被靜音
+  function unlockAudio() {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    try {
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch {}
+  }
+  const audioReady = () => !!audioCtx && audioCtx.state === "running";
   function tone(freq, at, dur, peak) {
     if (!audioCtx) return;
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -453,6 +474,7 @@
     vbLoop = setInterval(() => navigator.vibrate(pat), 2300);
   }
   function stopRingingSound() {
+    if (el.soundHint) el.soundHint.hidden = true;
     clearInterval(ringLoop); ringLoop = null;
     clearInterval(vbLoop); vbLoop = null;
     if (navigator.vibrate) navigator.vibrate(0);
@@ -499,6 +521,7 @@
     requestAnimationFrame(() => el.layer.classList.add("show"));
 
     startRingingSound(); startVibration(); keepAwake(true);
+    el.soundHint.hidden = audioReady() || !db.sound;
     updateStatus();
 
     // 標題閃爍（背景分頁也看得到）
@@ -567,6 +590,14 @@
 
   function tick() {
     renderNext();
+    // 只更新倒數文字，避免每秒重建整個列表
+    el.schedList.querySelectorAll("[data-cd]").forEach((n) => {
+      const s = db.schedules.find((x) => x.id === n.dataset.cd);
+      if (s) {
+        const txt = `${dayLabel(s.at)}・剩 ${remainLabel(s.at - Date.now())}`;
+        if (n.textContent !== txt) n.textContent = txt;
+      }
+    });
     if (call) return;
     const now = Date.now();
     const due = db.schedules.filter((s) => s.at <= now).sort((a, b) => a.at - b.at)[0];
@@ -602,7 +633,7 @@
         <span class="when">${clock(s.at)}</span>
         <span class="who">
           <span class="nm">${esc(s.name || db.name || "未知號碼")}</span>
-          <span class="cd">${dayLabel(s.at)}・剩 ${remainLabel(s.at - Date.now())}</span>
+          <span class="cd" data-cd="${s.id}">${dayLabel(s.at)}・剩 ${remainLabel(s.at - Date.now())}</span>
         </span>
         <button class="del" data-del="${s.id}" aria-label="刪除預約">×</button>
       </li>`).join("");
@@ -634,10 +665,9 @@
 
   /* ---------------- events ---------------- */
   el.ringNow.addEventListener("click", () => {
-    ensureAudio();
+    unlockAudio();
     if (call) return;
-    el.statusText.textContent = "3 秒後來電…";
-    setTimeout(() => startIncoming(db.name, "manual"), 3000);
+    startIncoming(db.name, "manual");
   });
 
   el.testSound.addEventListener("click", () => {
@@ -683,6 +713,29 @@
   el.vibeToggle.addEventListener("change", () => {
     db.vibe = el.vibeToggle.checked; save();
     if (!db.vibe && navigator.vibrate) navigator.vibrate(0);
+  });
+
+  el.soundHint.addEventListener("click", (e) => {
+    e.stopPropagation();
+    unlockAudio();
+    setTimeout(() => {
+      if (!audioReady()) {
+        el.soundHint.textContent = "🔇 還是沒聲音？請確認側邊靜音鍵已關閉、音量已調高";
+        return;
+      }
+      if (!ringLoop) startRingingSound();
+      el.soundHint.hidden = true;
+    }, 200);
+  });
+
+  el.layer.addEventListener("pointerdown", () => {
+    if (!call || call.answeredAt) return;
+    if (!audioReady()) {
+      unlockAudio();
+      setTimeout(() => {
+        if (call && !call.answeredAt && !ringLoop) { startRingingSound(); el.soundHint.hidden = true; }
+      }, 120);
+    }
   });
 
   el.accept.addEventListener("click", answer);
@@ -734,7 +787,7 @@
 
   // 首次點擊解鎖音訊（iOS 需要使用者手勢）
   document.addEventListener("pointerdown", function unlock() {
-    ensureAudio();
+    unlockAudio();
     document.removeEventListener("pointerdown", unlock);
   }, { once: true });
 })();
