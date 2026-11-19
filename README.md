@@ -8,6 +8,8 @@
 2. 點下方「分享」圖示 → **加入主畫面**
 3. 從主畫面啟動（全螢幕、無網址列）
 
+![來電畫面](docs/screenshot-call.png)
+
 > Chrome / Edge 在 iOS 上無法「加入主畫面」，一定要用 Safari。
 
 ## 功能
@@ -35,6 +37,11 @@ cd line-call-sim
 python3 -m http.server 8777
 # 開 http://127.0.0.1:8777/
 ```
+
+## 更新後看不到新版？
+
+Service worker 採 network-first，但仍可能拿到快取。Safari 開網址後下拉重新整理，
+或把主畫面圖示刪掉重加一次。
 
 ## 檔案
 
