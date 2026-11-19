@@ -127,6 +127,21 @@
   }
   @media (prefers-color-scheme: dark) { .seg-btn[aria-pressed="true"] { color: #4ADE80; } }
   .file-btn { position: relative; overflow: hidden; }
+  .sr-file {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+  /* bottom sheet 內不能讓隱藏 input 撐出捲動區 */
+  .file-btn { position: relative; }
+  .ring-status {
+    font-size: 12px; line-height: 1.5; margin-top: 8px; padding: 8px 10px;
+    border-radius: 10px; background: color-mix(in srgb, #FF9F0A 16%, transparent); color: #8A5300;
+  }
+  .ring-status.err { background: color-mix(in srgb, var(--red) 12%, transparent); color: #B3261E; }
+  @media (prefers-color-scheme: dark) {
+    .ring-status { color: #FFC061; }
+    .ring-status.err { color: #FF8A82; }
+  }
   .ring-name { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tone-note { font-size: 11px; line-height: 1.55; color: var(--muted); margin: 10px 0 0; }
   .switch input { width: 20px; height: 20px; accent-color: var(--green); }
@@ -301,14 +316,16 @@
     <div class="row" id="customRow" hidden>
       <label class="btn small ghost file-btn">
         選擇音檔
-        <input type="file" id="ringFile" accept="audio/*" hidden>
+        <input type="file" id="ringFile" class="sr-file" accept=".mp3,.m4a,.m4r,.mp4,.aac,.wav,.aif,.aiff,.caf,.flac,.ogg,.oga,.opus,audio/mpeg,audio/mp4,audio/x-m4a,audio/x-m4r,audio/aac,audio/wav,audio/x-wav,audio/flac,audio/ogg">
       </label>
       <span class="ring-name" id="ringName">未選擇</span>
       <button class="del" id="btnClearRing" aria-label="移除自訂音檔">×</button>
     </div>
-    <p class="tone-note">
-      自訂音檔存在這台裝置的瀏覽器裡（不會上傳）。LINE 官方鈴聲是版權音檔，無法內建；
-      想用真正的 LINE 鈴聲，請把音檔存到「檔案」App 後在這裡選取。
+    <div class="ring-status" id="ringStatus" hidden></div>
+    <p class="tone-note" id="ringHelp">
+      支援 mp3、m4a、m4r（iPhone 鈴聲）、wav、aac、caf、flac、ogg，上限 12MB。
+      檔案存在這台裝置的瀏覽器裡，不會上傳。
+      <button class="link" id="btnShowAll" type="button">選不到 mp3？改用不篩選的選擇器</button>
     </p>
     <div class="row">
       <span class="hint" style="min-width:62px">音量</span>
@@ -417,6 +434,7 @@
     mute: $("btnMute"), speaker: $("btnSpeaker"), soundHint: $("soundHint"),
     toneSeg: document.querySelector(".seg"), customRow: $("customRow"),
     ringFile: $("ringFile"), ringName: $("ringName"), btnClearRing: $("btnClearRing"),
+    btnShowAll: $("btnShowAll"), ringHelp: $("ringHelp"), ringStatus: $("ringStatus"),
     ringVol: $("ringVol"), ringVolVal: $("ringVolVal"),
   };
 
@@ -812,36 +830,79 @@
   });
 
   // ---- 選擇自訂音檔 ----
-  el.ringFile.addEventListener("change", async () => {
+  const AUDIO_EXT = /\.(mp3|m4a|m4r|mp4|aac|wav|wave|aif|aiff|caf|flac|ogg|oga|opus|webm|amr)$/i;
+
+  function ringMsg(text, isErr) {
+    el.ringStatus.hidden = !text;
+    el.ringStatus.textContent = text || "";
+    el.ringStatus.classList.toggle("err", !!isErr);
+  }
+
+  el.ringFile.addEventListener("change", () => {
     const f = el.ringFile.files && el.ringFile.files[0];
-    el.ringFile.value = "";
-    if (!f) return;
-    if (!/^audio\//.test(f.type) && !/\.(mp3|m4a|wav|aac|ogg|caf)$/i.test(f.name)) {
-      el.ringName.textContent = "不支援這個格式";
+    el.ringFile.value = "";                 // 允許重選同一個檔
+    if (f) acceptRingFile(f);
+  });
+
+  async function acceptRingFile(f) {
+    const looksAudio = /^audio\//.test(f.type) || /^video\/mp4$/.test(f.type) || AUDIO_EXT.test(f.name);
+    if (!looksAudio) {
+      ringMsg(`「${f.name}」看起來不是音檔。請改用 mp3、m4a、m4r 或 wav。`, true);
       return;
     }
     if (f.size > 12 * 1024 * 1024) {
-      el.ringName.textContent = "檔案太大（上限 12MB）";
+      ringMsg(`檔案 ${(f.size / 1048576).toFixed(1)}MB，超過 12MB 上限。請剪短或降轉後再試。`, true);
       return;
     }
-    const ctx = unlockAudio() || ensureAudio(); if (!ctx) return;
+
+    const ctx = unlockAudio() || ensureAudio();
+    if (!ctx) { ringMsg("這個瀏覽器不支援音訊解碼。", true); return; }
+
+    ringMsg("解碼中…");
     try {
-      const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+      const raw = await f.arrayBuffer();
+      // Safari 舊版 decodeAudioData 只吃 callback，兩種都支援
+      const buf = await new Promise((res, rej) => {
+        const p = ctx.decodeAudioData(raw, res, rej);
+        if (p && typeof p.then === "function") p.then(res, rej);
+      });
       customBuffer = buf;
-      await idbPut("ring", f);          // 存原始檔，重開機也能解碼
+      await idbPut("ring", f);              // 存原始檔，重開也能解碼
       db.ringName = f.name; db.tone = "custom";
       save(); renderRingChoice();
+      const secs = buf.duration.toFixed(1);
+      ringMsg(`已套用「${f.name}」（${secs} 秒）。重新載入後仍會保留。`);
       playCustom(ctx.currentTime + 0.03);   // 立刻試聽
-    } catch {
-      el.ringName.textContent = "這個檔案無法解碼，換一個試試";
+    } catch (err) {
       customBuffer = null;
+      const ext = (f.name.split(".").pop() || "").toLowerCase();
+      const hint = /^(amr|opus|webm|flac)$/.test(ext)
+        ? "iPhone 的 Safari 不解這個格式，請先轉成 m4a 或 mp3。"
+        : "檔案可能損壞、受 DRM 保護，或這個格式 Safari 不支援，請換一個檔或轉成 m4a。";
+      ringMsg(`無法解碼「${f.name}」。${hint}`, true);
     }
+  }
+
+  // iOS 的檔案選擇器對 UTI 判斷很嚴格，某些 mp3 會被灰掉。
+  // 備援：另一個完全不帶 accept 的 input，任何檔案都選得到。
+  el.btnShowAll.addEventListener("click", (e) => {
+    e.preventDefault();
+    const any = document.createElement("input");
+    any.type = "file";
+    any.style.display = "none";
+    document.body.appendChild(any);
+    any.addEventListener("change", () => {
+      const f = any.files && any.files[0];
+      any.remove();
+      if (f) acceptRingFile(f);
+    });
+    any.click();
   });
 
   el.btnClearRing.addEventListener("click", async () => {
     customBuffer = null; db.ringName = "";
     if (db.tone === "custom") db.tone = "line";
-    save(); renderRingChoice();
+    save(); renderRingChoice(); ringMsg("");
     try { await idbDel("ring"); } catch {}
   });
 
