@@ -576,7 +576,11 @@
 (() => {
   "use strict";
   const LS_KEY = "lineCallSim.v1";
-  const DEFAULTS = { name: "媽媽", ringSecs: 25, sound: true, vibe: true, tone: "line", vol: 85, schedules: [], log: [], contacts: [], nextCid: 1 };
+  const DEFAULTS = {
+    name: "媽媽", ringSecs: 25, sound: true, vibe: true,
+    tone: "line", vol: 85, voiceName: "",
+    schedules: [], log: [], contacts: [], nextCid: 1,
+  };
   const $ = (id) => document.getElementById(id);
   const el = {
     statusText: $("statusText"), beacon: $("beacon"), nextUp: $("nextUp"),
@@ -682,6 +686,7 @@
       // 重建：iOS 上被中斷的 context 常常救不回來，換一個最省事
       try { audioCtx.close(); } catch {}
       audioCtx = null; master = null;
+      voiceNodes = null;               // 舊鏈路屬於舊 context
       buildAudio();
       // 舊 context 解出來的 buffer 取樣率可能不同，重解一次避免變調
       customBuffer = null; voiceBuffer = null;
@@ -760,17 +765,35 @@
   const idbGet = (k) => idbDo("readonly", (s) => s.get(k));
   const idbDel = (k) => idbDo("readwrite", (s) => s.delete(k));
 
+  let ringPending = null;          // 正在解碼的 Promise（避免重複解）
+
   async function loadCustomRing() {
-    if (!db.ringName) { customBuffer = null; renderRingChoice(); return; }
-    try {
-      const blob = await idbGet("ring");
-      if (!blob) { customBuffer = null; renderRingChoice(); return; }
-      const ctx = ensureAudio();
-      if (!ctx) return;
-      const buf = await blob.arrayBuffer();
-      customBuffer = await ctx.decodeAudioData(buf);
-    } catch { customBuffer = null; }
-    renderRingChoice();
+    if (!db.ringName) { customBuffer = null; renderRingChoice(); return null; }
+    if (ringPending) return ringPending;
+    ringPending = (async () => {
+      try {
+        const blob = await idbGet("ring");
+        if (!blob) { customBuffer = null; return null; }
+        const ctx = ensureRunning();
+        if (!ctx) return null;
+        const buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+        customBuffer = buf;
+        return buf;
+      } catch { customBuffer = null; return null; }
+      finally { ringPending = null; renderRingChoice(); }
+    })();
+    return ringPending;
+  }
+
+  // 要響鈴前確保自訂鈴聲已就緒：第一次開啟頁面時解碼還沒完成，
+  // 以前會默默退回內建鈴聲，看起來就像「設定沒生效」。
+  async function ensureRingReady(timeoutMs = 2500) {
+    if (db.tone !== "custom" || customBuffer) return;
+    if (!db.ringName) return;
+    await Promise.race([
+      loadCustomRing(),
+      new Promise((r) => setTimeout(r, timeoutMs)),
+    ]);
   }
 
   function playCustom(at) {
@@ -991,14 +1014,57 @@
     renderVoice();
   }
 
+  // 聽筒 / 擴音：網頁無法指定 iOS 的實體輸出裝置（沒有這個 API），
+  // 所以用「音量 + 頻帶」模擬：預設聽筒（小聲、窄頻），按擴音才變成全音量全頻。
+  let voiceNodes = null;
+
+  function ensureVoiceChain() {
+    if (!audioCtx) return null;
+    if (voiceNodes) return voiceNodes;
+    const high = audioCtx.createBiquadFilter();
+    high.type = "highpass"; high.frequency.value = 380; high.Q.value = 0.7;
+    const low = audioCtx.createBiquadFilter();
+    low.type = "lowpass"; low.frequency.value = 3000; low.Q.value = 0.7;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.42;
+    high.connect(low).connect(gain).connect(master);
+    voiceNodes = { high, low, gain };
+    return voiceNodes;
+  }
+
+  function applyVoiceOutput() {
+    const speaker = !!(call && call.speaker);
+    const n = ensureVoiceChain();
+    if (n && audioCtx) {
+      const t = audioCtx.currentTime;
+      const ramp = (param, v) => { try { param.setTargetAtTime(v, t, 0.03); } catch { param.value = v; } };
+      const muted = !!(call && call.muted);
+      if (speaker) {
+        ramp(n.high.frequency, 60);
+        ramp(n.low.frequency, 12000);
+        ramp(n.gain.gain, muted ? 0.0001 : 1);
+      } else {
+        ramp(n.high.frequency, 380);
+        ramp(n.low.frequency, 3000);
+        ramp(n.gain.gain, muted ? 0.0001 : 0.42);
+      }
+    }
+    if (el.callSub) {
+      const muted = !!(call && call.muted);
+      el.callSub.textContent = muted
+        ? "🔇 已靜音"
+        : speaker ? "🔊 對方正在說話（擴音）" : "🔈 對方正在說話（聽筒）";
+    }
+  }
+
   function playVoice() {
     if (!voiceBuffer || !audioCtx) return false;
     try {
+      const chain = ensureVoiceChain();
       const src = audioCtx.createBufferSource();
-      const g = audioCtx.createGain();
-      g.gain.value = 1;
       src.buffer = voiceBuffer;
-      src.connect(g).connect(master);
+      src.connect(chain.high);
+      applyVoiceOutput();
       src.start();
       voiceSource = src;
       el.callSub.hidden = false;
@@ -1098,13 +1164,13 @@
   }
 
   /* ---------------- incoming call ---------------- */
-  function startIncoming(spec, source) {
+  async function startIncoming(spec, source) {
     if (call) return;
     // spec 可以是字串（舊路徑）或 { cid } / { name }
     const s = typeof spec === "string" ? { name: spec } : (spec || {});
     const who = callerFor(s);
     const name = (who.name || db.name || "未知號碼").trim() || "未知號碼";
-    call = { name, cid: who.cid, avatar: who.avatar, startedAt: Date.now(), answeredAt: null, source, timer: null, autoTimer: null, ticker: null };
+    call = { name, cid: who.cid, avatar: who.avatar, startedAt: Date.now(), answeredAt: null, source, timer: null, autoTimer: null, ticker: null, speaker: false, muted: false };
 
     el.callerName.textContent = name;
     el.callAvatarText.textContent = [...name][0] || "?";
@@ -1121,12 +1187,14 @@
     el.ringActions.hidden = false;
     el.activeActions.hidden = true;
     el.mute.setAttribute("aria-pressed", "false");
-    el.speaker.setAttribute("aria-pressed", "false");
+    el.speaker.setAttribute("aria-pressed", "false");   // 預設不擴音
     el.layer.hidden = false;
     requestAnimationFrame(() => el.layer.classList.add("show"));
 
     // 每次來電都重新確認音訊可用（iOS 第二次常被系統中斷）
     ensureRunning();
+    await ensureRingReady();        // 自訂鈴聲可能還在解碼，等它好再響
+    if (!call) return;              // 等待期間被取消
     startRingingSound(); startVibration(); keepAwake(true);
     el.soundHint.hidden = audioReady() || !db.sound;
     if (!el.soundHint.hidden) el.soundHint.textContent = "🔔 點一下播放鈴聲";
@@ -1152,7 +1220,12 @@
     el.callStatus.textContent = "00:00";
     blip(660, 0.12); setTimeout(() => blip(880, 0.16), 110);
     clearInterval(titleBlink); titleBlink = null; document.title = "通話中";
-    playVoice();                            // 接起來就說話
+    if (call.speaker) applyVoiceOutput();    // 預設聽筒；有按過擴音才全音量
+    // 語音可能還在解碼（第一次開啟），等一下就緒再播
+    (async () => {
+      if (!voiceBuffer && db.voiceName) await Promise.race([loadVoice(), new Promise((r) => setTimeout(r, 2000))]);
+      if (call && call.answeredAt) playVoice();
+    })();
     call.ticker = setInterval(() => {
       const s = Math.floor((Date.now() - call.answeredAt) / 1000);
       el.callStatus.textContent = `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
@@ -1217,7 +1290,7 @@
     if (due) {
       db.schedules = db.schedules.filter((s) => s.id !== due.id);
       save(); renderSchedules();
-      startIncoming({ cid: due.cid, name: due.name }, "scheduled");
+      ensureRingReady().then(() => startIncoming({ cid: due.cid, name: due.name }, "scheduled"));
     }
   }
 
@@ -1308,14 +1381,21 @@
   el.ringNow.addEventListener("click", () => {
     unlockAudio();
     if (call) return;
-    startIncoming({ name: db.name }, "manual");
+    ensureRingReady().then(() => {
+      if (!call) startIncoming({ name: db.name }, "manual");
+    });
   });
 
-  el.testSound.addEventListener("click", () => {
+  el.testSound.addEventListener("click", async () => {
     const ctx = unlockAudio() || ensureAudio(); if (!ctx) return;
+    await ensureRingReady();
+    const ctx2 = ensureRunning() || ctx;
     const useCustom = db.tone === "custom" && !!customBuffer;
     const play = useCustom ? playCustom : (TONES[db.tone] || lineTone);
-    play(ctx.currentTime + 0.03);
+    play(ctx2.currentTime + 0.03);
+    if (db.tone === "custom" && !customBuffer) {
+      showToast("自訂鈴聲還沒載入完成，先播內建鈴聲", true);
+    }
   });
 
   // ---- 音色切換 ----
@@ -1418,7 +1498,10 @@
     if (callBtn) {
       unlockAudio();
       if (call) return;
-      startIncoming({ cid: callBtn.dataset.call }, "manual");
+      const cid = callBtn.dataset.call;
+      ensureRingReady().then(() => {
+        if (!call) startIncoming({ cid }, "manual");
+      });
       return;
     }
     const editBtn = e.target.closest("[data-edit]");
@@ -1574,10 +1657,15 @@
   el.mute.addEventListener("click", () => {
     const on = el.mute.getAttribute("aria-pressed") === "true";
     el.mute.setAttribute("aria-pressed", String(!on));
+    if (call) { call.muted = !on; applyVoiceOutput(); }
   });
+
+  // 擴音：預設關閉（聽筒感），按下才全音量全頻
   el.speaker.addEventListener("click", () => {
     const on = el.speaker.getAttribute("aria-pressed") === "true";
-    el.speaker.setAttribute("aria-pressed", String(!on));
+    const next = !on;
+    el.speaker.setAttribute("aria-pressed", String(next));
+    if (call) { call.speaker = next; applyVoiceOutput(); }
   });
 
   el.btnClearLog.addEventListener("click", () => {
