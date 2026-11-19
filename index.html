@@ -138,9 +138,11 @@
     border-radius: 10px; background: color-mix(in srgb, #FF9F0A 16%, transparent); color: #8A5300;
   }
   .ring-status.err { background: color-mix(in srgb, var(--red) 12%, transparent); color: #B3261E; }
+  .ring-status.ok { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green-dark); font-weight: 600; }
   @media (prefers-color-scheme: dark) {
     .ring-status { color: #FFC061; }
     .ring-status.err { color: #FF8A82; }
+    .ring-status.ok { color: #4ADE80; }
   }
   .ring-name { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tone-note { font-size: 11px; line-height: 1.55; color: var(--muted); margin: 10px 0 0; }
@@ -832,10 +834,11 @@
   // ---- 選擇自訂音檔 ----
   const AUDIO_EXT = /\.(mp3|m4a|m4r|mp4|aac|wav|wave|aif|aiff|caf|flac|ogg|oga|opus|webm|amr)$/i;
 
-  function ringMsg(text, isErr) {
+  function ringMsg(text, kind) {
     el.ringStatus.hidden = !text;
     el.ringStatus.textContent = text || "";
-    el.ringStatus.classList.toggle("err", !!isErr);
+    el.ringStatus.classList.toggle("err", kind === "err");
+    el.ringStatus.classList.toggle("ok", kind === "ok");
   }
 
   el.ringFile.addEventListener("change", () => {
@@ -847,16 +850,16 @@
   async function acceptRingFile(f) {
     const looksAudio = /^audio\//.test(f.type) || /^video\/mp4$/.test(f.type) || AUDIO_EXT.test(f.name);
     if (!looksAudio) {
-      ringMsg(`「${f.name}」看起來不是音檔。請改用 mp3、m4a、m4r 或 wav。`, true);
+      ringMsg(`「${f.name}」看起來不是音檔。請改用 mp3、m4a、m4r 或 wav。`, "err");
       return;
     }
     if (f.size > 12 * 1024 * 1024) {
-      ringMsg(`檔案 ${(f.size / 1048576).toFixed(1)}MB，超過 12MB 上限。請剪短或降轉後再試。`, true);
+      ringMsg(`檔案 ${(f.size / 1048576).toFixed(1)}MB，超過 12MB 上限。請剪短或降轉後再試。`, "err");
       return;
     }
 
     const ctx = unlockAudio() || ensureAudio();
-    if (!ctx) { ringMsg("這個瀏覽器不支援音訊解碼。", true); return; }
+    if (!ctx) { ringMsg("這個瀏覽器不支援音訊解碼。", "err"); return; }
 
     ringMsg("解碼中…");
     try {
@@ -871,7 +874,7 @@
       db.ringName = f.name; db.tone = "custom";
       save(); renderRingChoice();
       const secs = buf.duration.toFixed(1);
-      ringMsg(`已套用「${f.name}」（${secs} 秒）。重新載入後仍會保留。`);
+      ringMsg(`已套用「${f.name}」（${secs} 秒）。重新載入後仍會保留。`, "ok");
       playCustom(ctx.currentTime + 0.03);   // 立刻試聽
     } catch (err) {
       customBuffer = null;
@@ -879,7 +882,7 @@
       const hint = /^(amr|opus|webm|flac)$/.test(ext)
         ? "iPhone 的 Safari 不解這個格式，請先轉成 m4a 或 mp3。"
         : "檔案可能損壞、受 DRM 保護，或這個格式 Safari 不支援，請換一個檔或轉成 m4a。";
-      ringMsg(`無法解碼「${f.name}」。${hint}`, true);
+      ringMsg(`無法解碼「${f.name}」。${hint}`, "err");
     }
   }
 
