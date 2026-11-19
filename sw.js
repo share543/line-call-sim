@@ -1,6 +1,6 @@
 /* 來電模擬器 — service worker
    策略：導覽請求 network-first（拿到新版就更新快取），靜態資源 cache-first。 */
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `line-call-sim-${VERSION}`;
 const ASSETS = [
   "./",
