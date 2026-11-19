@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>來電模擬器</title>
+<meta name="theme-color" content="#06C755">
+<meta name="description" content="模擬 LINE 來電畫面：接聽、掛斷與預約來電。">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="來電模擬">
+<meta name="format-detection" content="telephone=no">
+<style>
+  :root {
+    --green: #06C755;
+    --green-dark: #05A948;
+    --red: #FF3B30;
+    --ink: #101214;
+    --ink-2: #3d434a;
+    --muted: #8a9099;
+    --line: #e8eaed;
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --radius: 18px;
+    --shadow: 0 1px 2px rgba(16,18,20,.05), 0 10px 30px -18px rgba(16,18,20,.35);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f2f4f6; --ink-2: #c8cdd4; --muted: #8b929c;
+      --line: #2a2f35; --bg: #0f1214; --card: #171b1f;
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 30px -18px rgba(0,0,0,.9);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    touch-action: manipulation;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 18px) env(safe-area-inset-left);
+  }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 0 18px; }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 26px 2px 18px; }
+  .brand {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 700; letter-spacing: .08em;
+    color: var(--green-dark); text-transform: uppercase;
+  }
+  .brand .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 18%, transparent); }
+  h1 { font-size: 30px; line-height: 1.15; letter-spacing: -.02em; margin: 10px 0 6px; }
+  .sub { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+  /* ---------- cards ---------- */
+  .card {
+    background: var(--card); border-radius: var(--radius); padding: 16px;
+    box-shadow: var(--shadow); margin-top: 14px;
+  }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  h2 { font-size: 15px; margin: 0; letter-spacing: -.01em; }
+  .hint { font-size: 11px; color: var(--muted); }
+  .label { font-size: 11px; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+
+  /* ---------- status ---------- */
+  .status-card { background: linear-gradient(160deg, #0e2a1b, #0a1510 70%); color: #fff; box-shadow: 0 12px 30px -18px rgba(6,199,85,.7); }
+  .status-card > .label { color: rgba(255,255,255,.5); }
+  .status-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+  .status { font-size: 22px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+  .next { margin-top: 12px; font-size: 13px; color: rgba(255,255,255,.62); border-top: 1px solid rgba(255,255,255,.1); padding-top: 11px; }
+  .beacon { width: 12px; height: 12px; border-radius: 50%; background: var(--green); position: relative; }
+  .beacon::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--green); animation: pulse 2.4s ease-out infinite; }
+  .beacon.busy { background: #FFD60A; } .beacon.busy::after { background: #FFD60A; }
+  @keyframes pulse { 0% { transform: scale(1); opacity: .7 } 100% { transform: scale(3.2); opacity: 0 } }
+
+  /* ---------- buttons ---------- */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 52px; padding: 0 16px; border: 0; border-radius: 15px;
+    font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    white-space: nowrap; flex: 0 0 auto;
+    transition: transform .12s ease, opacity .12s ease, background .2s ease;
+  }
+  .btn:active { transform: scale(.975); }
+  .btn.primary { background: var(--green); color: #fff; box-shadow: 0 8px 20px -12px rgba(6,199,85,.9); }
+  .btn.primary:active { background: var(--green-dark); }
+  .btn.ghost { background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+  .btn.small { height: 40px; font-size: 14px; border-radius: 12px; padding: 0 14px; }
+  .btn svg { width: 19px; height: 19px; fill: currentColor; }
+  .link { background: none; border: 0; color: var(--green-dark); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px; }
+  @media (prefers-color-scheme: dark) { .link { color: #4ADE80; } }
+
+  /* ---------- form rows ---------- */
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row + .row { margin-top: 12px; }
+  input[type="text"], input[type="time"] {
+    flex: 1; min-width: 0; height: 44px; padding: 0 12px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--bg); color: var(--ink); font: inherit; font-size: 16px;
+    -webkit-appearance: none; appearance: none;
+  }
+  input[type="time"] { flex: 1 1 118px; min-width: 104px; }
+  input[type="range"] { flex: 1; accent-color: var(--green); }
+  .chips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+  .chips button {
+    border: 1px solid var(--line); background: transparent; color: var(--ink-2);
+    border-radius: 12px; height: 38px; padding: 0 8px; font: inherit; font-size: 13px; cursor: pointer;
+    white-space: nowrap;
+  }
+  .chips button:active { background: color-mix(in srgb, var(--green) 14%, transparent); border-color: var(--green); }
+  .switch { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+  .switch input { width: 20px; height: 20px; accent-color: var(--green); }
+
+  /* ---------- lists ---------- */
+  ul { list-style: none; margin: 0; padding: 0; }
+  .sched-list li, .log-list li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 0; border-top: 1px solid var(--line);
+  }
+  .sched-list li:first-child, .log-list li:first-child { border-top: 0; }
+  .when { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; min-width: 74px; }
+  .who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .who .nm { font-size: 14px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cd { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .del {
+    width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line);
+    background: transparent; color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer; flex: 0 0 auto;
+  }
+  .log-list .who { flex: 1; }
+  .tag { font-size: 11px; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .tag.ok { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green-dark); }
+  .tag.miss { background: color-mix(in srgb, #FF9F0A 18%, transparent); color: #B26A00; }
+  .tag.decl { background: color-mix(in srgb, var(--red) 14%, transparent); color: #C42B22; }
+  @media (prefers-color-scheme: dark) { .tag.ok { color: #4ADE80 } .tag.miss { color: #FFC061 } .tag.decl { color: #FF7A72 } }
+  .empty { font-size: 13px; color: var(--muted); padding: 6px 0; }
+  .foot { font-size: 12px; line-height: 1.6; color: var(--muted); margin: 16px 2px 0; }
+  .install-card { background: color-mix(in srgb, var(--green) 8%, var(--card)); }
+  .install-card ol { margin: 8px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.75; color: var(--ink-2); }
+
+  /* ---------- call layer ---------- */
+  .call-layer {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 30px) 24px calc(env(safe-area-inset-bottom) + 34px);
+    color: #fff; background: #08120d;
+    opacity: 0; transform: scale(1.03); pointer-events: none;
+    transition: opacity .22s ease, transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .call-layer[hidden] { display: none; }
+  .call-layer.show { opacity: 1; transform: none; pointer-events: auto; }
+  .call-layer::before {
+    content: ""; position: absolute; inset: -20%;
+    background:
+      radial-gradient(60% 45% at 50% 12%, rgba(6,199,85,.42), transparent 70%),
+      radial-gradient(45% 35% at 85% 85%, rgba(6,199,85,.14), transparent 70%),
+      #08120d;
+    animation: drift 9s ease-in-out infinite alternate;
+  }
+  @keyframes drift { from { transform: translateY(-1%) scale(1) } to { transform: translateY(1.5%) scale(1.04) } }
+  .call-inner { position: relative; display: flex; flex-direction: column; height: 100%; }
+  .call-top { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; }
+  .call-kind { font-size: 11px; letter-spacing: .16em; color: rgba(255,255,255,.55); text-transform: uppercase; }
+  .avatar {
+    width: 104px; height: 104px; border-radius: 50%; margin: 22px 0 18px;
+    display: grid; place-items: center;
+    font-size: 42px; font-weight: 600;
+    background: linear-gradient(150deg, #3ddc84, #06C755 55%, #039140);
+    box-shadow: 0 18px 40px -18px rgba(6,199,85,.9), inset 0 0 0 1px rgba(255,255,255,.22);
+    position: relative;
+  }
+  .avatar.ringing::after {
+    content: ""; position: absolute; inset: -10px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.35); animation: halo 1.9s ease-out infinite;
+  }
+  @keyframes halo { 0% { transform: scale(.92); opacity: .8 } 100% { transform: scale(1.45); opacity: 0 } }
+  .caller-name { font-size: 30px; font-weight: 600; letter-spacing: -.01em; margin: 0; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .call-status { font-size: 15px; color: rgba(255,255,255,.62); font-variant-numeric: tabular-nums; margin-top: 6px; }
+  .call-bottom { flex: 0 0 auto; padding-bottom: 6px; }
+  .call-actions { display: flex; justify-content: space-around; align-items: flex-start; }
+  .action { display: flex; flex-direction: column; align-items: center; gap: 9px; }
+  .action span { font-size: 12px; color: rgba(255,255,255,.7); }
+  .circle {
+    width: 74px; height: 74px; border-radius: 50%; border: 0; cursor: pointer;
+    display: grid; place-items: center; transition: transform .14s ease, filter .2s ease;
+  }
+  .circle:active { transform: scale(.93); filter: brightness(.92); }
+  .circle svg { width: 30px; height: 30px; fill: #fff; }
+  .circle.accept { background: var(--green); box-shadow: 0 14px 30px -12px rgba(6,199,85,.9); }
+  .circle.decline { background: var(--red); box-shadow: 0 14px 30px -12px rgba(255,59,48,.75); }
+  .circle.dim { background: rgba(255,255,255,.14); }
+  .circle.dim[aria-pressed="true"] { background: #fff; }
+  .circle.dim[aria-pressed="true"] svg { fill: #111; }
+  .circle svg.rot { transform: rotate(135deg); }
+  .media-row { display: flex; justify-content: center; gap: 26px; margin-bottom: 22px; }
+  .media-row .circle { width: 58px; height: 58px; }
+  .media-row .circle svg { width: 23px; height: 23px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .beacon::after, .avatar.ringing::after, .call-layer::before { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="brand"><span class="dot"></span>LINE 通話模擬</div>
+    <h1>來電模擬器</h1>
+    <p class="sub">模擬 LINE 電話響起，可接聽、掛斷，也能預約來電。</p>
+  </header>
+
+  <section class="card status-card">
+    <div class="label">目前狀態</div>
+    <div class="status-row">
+      <div class="status" id="statusText">待機中</div>
+      <div class="beacon" id="beacon"></div>
+    </div>
+    <div class="next" id="nextUp">尚無預約來電</div>
+  </section>
+
+  <div class="grid2">
+    <button class="btn primary" id="btnRingNow">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>
+      立即來電
+    </button>
+    <button class="btn ghost" id="btnTestSound">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 2.2v2.1a8 8 0 0 1 0 15.4v2.1a10 10 0 0 0 0-19.6z"/></svg>
+      試聽鈴聲
+    </button>
+  </div>
+
+  <section class="card">
+    <div class="card-head"><h2>預約來電</h2><span class="hint">時間到自動響鈴</span></div>
+    <div class="chips" id="quickChips">
+      <button data-min="1">1 分鐘後</button>
+      <button data-min="5">5 分鐘後</button>
+      <button data-min="15">15 分鐘後</button>
+      <button data-min="30">30 分鐘後</button>
+    </div>
+    <div class="row">
+      <span class="hint" style="min-width:52px">時間</span>
+      <input type="time" id="timeInput" aria-label="指定時間">
+      <button class="btn small primary" id="btnSchedule">排定</button>
+    </div>
+    <div class="row">
+      <span class="hint" style="min-width:52px">誰打來</span>
+      <input type="text" id="schedName" maxlength="12" placeholder="選填，預設用上方名稱" aria-label="來電者">
+    </div>
+    <ul class="sched-list" id="schedList"></ul>
+    <div class="empty" id="schedEmpty">還沒有預約</div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>來電設定</h2></div>
+    <div class="row">
+      <input type="text" id="nameInput" maxlength="12" placeholder="來電顯示名稱" aria-label="來電顯示名稱">
+    </div>
+    <div class="row">
+      <span class="hint" style="min-width:62px">響鈴秒數</span>
+      <input type="range" id="ringSecs" min="5" max="60" step="5" aria-label="響鈴秒數">
+      <span class="hint" id="ringSecsVal" style="min-width:44px;text-align:right">25 秒</span>
+    </div>
+    <div class="row" style="gap:18px">
+      <label class="switch"><input type="checkbox" id="soundToggle"><span>鈴聲</span></label>
+      <label class="switch"><input type="checkbox" id="vibeToggle"><span>震動</span></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>最近通話</h2><button class="link" id="btnClearLog">清除</button></div>
+    <ul class="log-list" id="logList"></ul>
+    <div class="empty" id="logEmpty">還沒有通話紀錄</div>
+  </section>
+
+  <section class="card install-card" id="installCard">
+    <div class="card-head"><h2>安裝到 iPhone</h2></div>
+    <ol>
+      <li>用 <b>Safari</b> 開啟這個網址（Chrome 不行）。</li>
+      <li>點下方「分享」圖示 →「加入主畫面」。</li>
+      <li>從主畫面開啟，就會全螢幕顯示。</li>
+    </ol>
+  </section>
+
+  <p class="foot">
+    iPhone 的限制：網頁版無法在背景準時響鈴，請讓這個畫面保持開啟（或剛切回來）。
+    切回來時若已過預約時間，會立刻補響一次，不會默默錯過。
+  </p>
+</div>
+
+<!-- ================= 來電畫面 ================= -->
+<div class="call-layer" id="callLayer" hidden role="dialog" aria-modal="true" aria-label="來電">
+  <div class="call-inner">
+    <div class="call-top">
+      <div class="call-kind" id="callKind">LINE 來電</div>
+      <div class="avatar" id="callAvatar">媽</div>
+      <p class="caller-name" id="callerName">媽媽</p>
+      <div class="call-status" id="callStatus">來電中…</div>
+    </div>
+
+    <div class="call-bottom">
+      <!-- 響鈴中：接聽 / 掛斷 -->
+      <div class="call-actions" id="ringActions">
+        <div class="action">
+          <button class="circle decline" id="btnDecline" aria-label="掛斷">
+            <svg class="rot" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>
+          </button>
+          <span>掛斷</span>
+        </div>
+        <div class="action">
+          <button class="circle accept" id="btnAccept" aria-label="接聽">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>
+          </button>
+          <span>接聽</span>
+        </div>
+      </div>
+
+      <!-- 通話中 -->
+      <div id="activeActions" hidden>
+        <div class="media-row">
+          <div class="action">
+            <button class="circle dim" id="btnMute" aria-pressed="false" aria-label="靜音">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm6-3a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.93V23h2v-3.07A8 8 0 0 0 20 12h-2z"/></svg>
+            </button>
+            <span>靜音</span>
+          </div>
+          <div class="action">
+            <button class="circle dim" id="btnSpeaker" aria-pressed="false" aria-label="擴音">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 2.2v2.1a8 8 0 0 1 0 15.4v2.1a10 10 0 0 0 0-19.6z"/></svg>
+            </button>
+            <span>擴音</span>
+          </div>
+        </div>
+        <div class="call-actions">
+          <div class="action">
+            <button class="circle decline" id="btnHangup" aria-label="結束通話">
+              <svg class="rot" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>
+            </button>
+            <span>掛斷</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const LS_KEY = "lineCallSim.v1";
+  const DEFAULTS = { name: "媽媽", ringSecs: 25, sound: true, vibe: true, schedules: [], log: [] };
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    statusText: $("statusText"), beacon: $("beacon"), nextUp: $("nextUp"),
+    ringNow: $("btnRingNow"), testSound: $("btnTestSound"),
+    quick: $("quickChips"), timeInput: $("timeInput"), schedName: $("schedName"),
+    btnSchedule: $("btnSchedule"), schedList: $("schedList"), schedEmpty: $("schedEmpty"),
+    nameInput: $("nameInput"), ringSecs: $("ringSecs"), ringSecsVal: $("ringSecsVal"),
+    soundToggle: $("soundToggle"), vibeToggle: $("vibeToggle"),
+    logList: $("logList"), logEmpty: $("logEmpty"), btnClearLog: $("btnClearLog"),
+    installCard: $("installCard"),
+    layer: $("callLayer"), callKind: $("callKind"), callAvatar: $("callAvatar"),
+    callerName: $("callerName"), callStatus: $("callStatus"),
+    ringActions: $("ringActions"), activeActions: $("activeActions"),
+    accept: $("btnAccept"), decline: $("btnDecline"), hangup: $("btnHangup"),
+    mute: $("btnMute"), speaker: $("btnSpeaker"),
+  };
+
+  /* ---------------- state ---------------- */
+  let db = load();
+  let call = null;            // { name, startedAt, answeredAt, source, timer, autoTimer, ticker }
+  let audioCtx = null, master = null, ringLoop = null, vbLoop = null;
+  let wakeLock = null, titleBlink = null, lastNext = "";
+
+  function load() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+      return Object.assign({}, DEFAULTS, raw, {
+        schedules: Array.isArray(raw.schedules) ? raw.schedules : [],
+        log: Array.isArray(raw.log) ? raw.log : [],
+      });
+    } catch { return Object.assign({}, DEFAULTS); }
+  }
+  function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch {} }
+
+  const pad = (n) => String(n).padStart(2, "0");
+  const clock = (ts) => { const d = new Date(ts); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  function dayLabel(ts) {
+    const d = new Date(ts), now = new Date();
+    const sameDay = (a, b) => a.toDateString() === b.toDateString();
+    if (sameDay(d, now)) return "今天";
+    const t = new Date(now); t.setDate(t.getDate() + 1);
+    if (sameDay(d, t)) return "明天";
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  }
+  function remainLabel(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    if (s < 60) return `${s} 秒`;
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m} 分`;
+    return `${Math.floor(m / 60)} 小時 ${m % 60} 分`;
+  }
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  /* ---------------- audio ---------------- */
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+      master = audioCtx.createGain();
+      master.gain.value = 0.85;
+      master.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+    return audioCtx;
+  }
+  function tone(freq, at, dur, peak) {
+    if (!audioCtx) return;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+    o.type = "sine"; o.frequency.value = freq;
+    o2.type = "sine"; o2.frequency.value = freq * 2;
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(peak, at + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    g2.gain.setValueAtTime(0.0001, at);
+    g2.gain.exponentialRampToValueAtTime(peak * 0.18, at + 0.015);
+    g2.gain.exponentialRampToValueAtTime(0.0001, at + dur * 0.75);
+    o.connect(g).connect(master); o2.connect(g2).connect(master);
+    o.start(at); o.stop(at + dur + 0.05);
+    o2.start(at); o2.stop(at + dur * 0.8 + 0.05);
+  }
+  function ringCycle(at) {                 // 兩聲一組，像 LINE 的來電節奏
+    tone(987.77, at, 0.34, 0.30);          // B5
+    tone(783.99, at + 0.17, 0.34, 0.26);   // G5
+    tone(987.77, at + 0.52, 0.30, 0.26);
+    tone(783.99, at + 0.69, 0.42, 0.22);
+  }
+  function startRingingSound() {
+    if (!db.sound) return;
+    const ctx = ensureAudio(); if (!ctx) return;
+    ringCycle(ctx.currentTime + 0.05);
+    ringLoop = setInterval(() => { if (audioCtx) ringCycle(audioCtx.currentTime + 0.05); }, 2300);
+  }
+  function startVibration() {
+    if (!db.vibe || !navigator.vibrate) return;
+    const pat = [500, 220, 500, 900];
+    navigator.vibrate(pat);
+    vbLoop = setInterval(() => navigator.vibrate(pat), 2300);
+  }
+  function stopRingingSound() {
+    clearInterval(ringLoop); ringLoop = null;
+    clearInterval(vbLoop); vbLoop = null;
+    if (navigator.vibrate) navigator.vibrate(0);
+  }
+  function blip(freq, dur) {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.22, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  /* ---------------- wake lock ---------------- */
+  async function keepAwake(on) {
+    try {
+      if (on && "wakeLock" in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      } else if (!on && wakeLock) {
+        await wakeLock.release(); wakeLock = null;
+      }
+    } catch {}
+  }
+
+  /* ---------------- incoming call ---------------- */
+  function startIncoming(name, source) {
+    if (call) return;
+    const who = (name || db.name || "未知號碼").trim() || "未知號碼";
+    call = { name: who, startedAt: Date.now(), answeredAt: null, source, timer: null, autoTimer: null, ticker: null };
+
+    el.callerName.textContent = who;
+    el.callAvatar.textContent = [...who][0] || "?";
+    el.callKind.textContent = "LINE 來電";
+    el.callStatus.textContent = "來電中…";
+    el.callAvatar.classList.add("ringing");
+    el.ringActions.hidden = false;
+    el.activeActions.hidden = true;
+    el.mute.setAttribute("aria-pressed", "false");
+    el.speaker.setAttribute("aria-pressed", "false");
+    el.layer.hidden = false;
+    requestAnimationFrame(() => el.layer.classList.add("show"));
+
+    startRingingSound(); startVibration(); keepAwake(true);
+    updateStatus();
+
+    // 標題閃爍（背景分頁也看得到）
+    let on = false;
+    titleBlink = setInterval(() => { on = !on; document.title = on ? `📞 ${who} 來電` : "來電中…"; }, 900);
+
+    call.autoTimer = setTimeout(() => finish("missed"), Math.max(5, db.ringSecs) * 1000);
+    notify(who);
+    if (navigator.vibrate === undefined) { /* iOS Safari 無 Vibration API，只能靠聲音 */ }
+  }
+
+  function answer() {
+    if (!call || call.answeredAt) return;
+    stopRingingSound();
+    clearTimeout(call.autoTimer);
+    call.answeredAt = Date.now();
+    el.callAvatar.classList.remove("ringing");
+    el.ringActions.hidden = true;
+    el.activeActions.hidden = false;
+    el.callStatus.textContent = "00:00";
+    blip(660, 0.12); setTimeout(() => blip(880, 0.16), 110);
+    clearInterval(titleBlink); titleBlink = null; document.title = "通話中";
+    call.ticker = setInterval(() => {
+      const s = Math.floor((Date.now() - call.answeredAt) / 1000);
+      el.callStatus.textContent = `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+    }, 500);
+    updateStatus();
+  }
+
+  function finish(result) {
+    if (!call) return;
+    stopRingingSound();
+    clearTimeout(call.autoTimer);
+    clearInterval(call.ticker);
+    clearInterval(titleBlink); titleBlink = null;
+    document.title = "來電模擬器";
+
+    const dur = call.answeredAt ? Math.round((Date.now() - call.answeredAt) / 1000) : 0;
+    db.log.unshift({ at: call.startedAt, name: call.name, result, dur });
+    db.log = db.log.slice(0, 20);
+    save();
+
+    el.layer.classList.remove("show");
+    el.callAvatar.classList.remove("ringing");
+    setTimeout(() => { el.layer.hidden = true; }, 240);
+    call = null;
+    keepAwake(false);
+    renderLog(); updateStatus();
+  }
+
+  function notify(who) {
+    try {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      const n = new Notification("LINE 來電", { body: `${who} 來電中`, tag: "line-call", silent: false });
+      setTimeout(() => { try { n.close(); } catch {} }, 8000);
+    } catch {}
+  }
+
+  /* ---------------- scheduling ---------------- */
+  function addSchedule(at, name) {
+    const who = (name || db.name || "").trim();
+    db.schedules.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, at, name: who });
+    db.schedules.sort((a, b) => a.at - b.at);
+    save(); renderSchedules(); updateStatus();
+  }
+
+  function tick() {
+    renderNext();
+    if (call) return;
+    const now = Date.now();
+    const due = db.schedules.filter((s) => s.at <= now).sort((a, b) => a.at - b.at)[0];
+    if (due) {
+      db.schedules = db.schedules.filter((s) => s.id !== due.id);
+      save(); renderSchedules();
+      startIncoming(due.name, "scheduled");
+    }
+  }
+
+  /* ---------------- render ---------------- */
+  function updateStatus() {
+    if (call && call.answeredAt) { el.statusText.textContent = "通話中"; el.beacon.classList.add("busy"); }
+    else if (call) { el.statusText.textContent = "響鈴中"; el.beacon.classList.add("busy"); }
+    else if (db.schedules.length) { el.statusText.textContent = "已排定來電"; el.beacon.classList.remove("busy"); }
+    else { el.statusText.textContent = "待機中"; el.beacon.classList.remove("busy"); }
+    renderNext();
+  }
+
+  function renderNext() {
+    const nxt = [...db.schedules].sort((a, b) => a.at - b.at)[0];
+    let text;
+    if (!nxt) text = "尚無預約來電";
+    else text = `${dayLabel(nxt.at)} ${clock(nxt.at)} ・ ${nxt.name || db.name || "未知號碼"} ・ 剩 ${remainLabel(nxt.at - Date.now())}`;
+    if (text !== lastNext) { el.nextUp.textContent = text; lastNext = text; }
+  }
+
+  function renderSchedules() {
+    const list = [...db.schedules].sort((a, b) => a.at - b.at);
+    el.schedEmpty.hidden = list.length > 0;
+    el.schedList.innerHTML = list.map((s) => `
+      <li>
+        <span class="when">${clock(s.at)}</span>
+        <span class="who">
+          <span class="nm">${esc(s.name || db.name || "未知號碼")}</span>
+          <span class="cd">${dayLabel(s.at)}・剩 ${remainLabel(s.at - Date.now())}</span>
+        </span>
+        <button class="del" data-del="${s.id}" aria-label="刪除預約">×</button>
+      </li>`).join("");
+  }
+
+  function renderLog() {
+    el.logEmpty.hidden = db.log.length > 0;
+    const label = { answered: ["ok", "已接聽"], missed: ["miss", "未接"], declined: ["decl", "已拒接"] };
+    el.logList.innerHTML = db.log.map((l) => {
+      const [cls, txt] = label[l.result] || label.miss;
+      const extra = l.result === "answered" ? `・${pad(Math.floor(l.dur / 60))}:${pad(l.dur % 60)}` : "";
+      return `<li>
+        <span class="who">
+          <span class="nm">${esc(l.name)}</span>
+          <span class="cd">${dayLabel(l.at)} ${clock(l.at)}${extra}</span>
+        </span>
+        <span class="tag ${cls}">${txt}</span>
+      </li>`;
+    }).join("");
+  }
+
+  function renderSettings() {
+    el.nameInput.value = db.name;
+    el.ringSecs.value = String(db.ringSecs);
+    el.ringSecsVal.textContent = `${db.ringSecs} 秒`;
+    el.soundToggle.checked = !!db.sound;
+    el.vibeToggle.checked = !!db.vibe;
+  }
+
+  /* ---------------- events ---------------- */
+  el.ringNow.addEventListener("click", () => {
+    ensureAudio();
+    if (call) return;
+    el.statusText.textContent = "3 秒後來電…";
+    setTimeout(() => startIncoming(db.name, "manual"), 3000);
+  });
+
+  el.testSound.addEventListener("click", () => {
+    const ctx = ensureAudio(); if (!ctx) return;
+    ringCycle(ctx.currentTime + 0.03);
+  });
+
+  el.quick.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-min]");
+    if (!b) return;
+    addSchedule(Date.now() + Number(b.dataset.min) * 60000, el.schedName.value);
+    el.schedName.value = "";
+  });
+
+  el.btnSchedule.addEventListener("click", () => {
+    const t = el.timeInput.value;
+    if (!t) { el.timeInput.focus(); return; }
+    const [h, m] = t.split(":").map(Number);
+    const d = new Date(); d.setHours(h, m, 0, 0);
+    if (d.getTime() <= Date.now() + 5000) d.setDate(d.getDate() + 1);
+    addSchedule(d.getTime(), el.schedName.value);
+    el.schedName.value = "";
+  });
+
+  el.schedList.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-del]");
+    if (!b) return;
+    db.schedules = db.schedules.filter((s) => s.id !== b.dataset.del);
+    save(); renderSchedules(); updateStatus();
+  });
+
+  el.nameInput.addEventListener("input", () => {
+    db.name = el.nameInput.value.slice(0, 12); save();
+  });
+  el.ringSecs.addEventListener("input", () => {
+    db.ringSecs = Number(el.ringSecs.value);
+    el.ringSecsVal.textContent = `${db.ringSecs} 秒`; save();
+  });
+  el.soundToggle.addEventListener("change", () => {
+    db.sound = el.soundToggle.checked; save();
+    if (db.sound) ensureAudio(); else stopRingingSound();
+  });
+  el.vibeToggle.addEventListener("change", () => {
+    db.vibe = el.vibeToggle.checked; save();
+    if (!db.vibe && navigator.vibrate) navigator.vibrate(0);
+  });
+
+  el.accept.addEventListener("click", answer);
+  el.decline.addEventListener("click", () => finish("declined"));
+  el.hangup.addEventListener("click", () => finish("answered"));
+
+  el.mute.addEventListener("click", () => {
+    const on = el.mute.getAttribute("aria-pressed") === "true";
+    el.mute.setAttribute("aria-pressed", String(!on));
+  });
+  el.speaker.addEventListener("click", () => {
+    const on = el.speaker.getAttribute("aria-pressed") === "true";
+    el.speaker.setAttribute("aria-pressed", String(!on));
+  });
+
+  el.btnClearLog.addEventListener("click", () => {
+    if (!db.log.length) return;
+    db.log = []; save(); renderLog();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (!call) return;
+    if (e.key === "Escape") finish(call.answeredAt ? "answered" : "declined");
+    if (e.key === "Enter") call.answeredAt ? finish("answered") : answer();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      tick();
+      if (call && !call.answeredAt) keepAwake(true);
+    }
+  });
+
+  /* 不要在響鈴時被 iOS 的音訊中斷停掉整個排程 */
+  setInterval(tick, 500);
+
+  /* ---------------- init ---------------- */
+  renderSettings();
+  renderSchedules();
+  renderLog();
+  updateStatus();
+
+  if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) {
+    el.installCard.hidden = true;
+  }
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+  }
+
+  // 首次點擊解鎖音訊（iOS 需要使用者手勢）
+  document.addEventListener("pointerdown", function unlock() {
+    ensureAudio();
+    document.removeEventListener("pointerdown", unlock);
+  }, { once: true });
+})();
+</script>
+</body>
+</html>

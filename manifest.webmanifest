@@ -1,0 +1,19 @@
+{
+  "name": "來電模擬器",
+  "short_name": "來電模擬",
+  "description": "模擬 LINE 來電畫面：接聽、掛斷與預約來電。",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08120d",
+  "theme_color": "#06C755",
+  "categories": ["utilities", "entertainment"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
