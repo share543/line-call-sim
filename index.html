@@ -34,6 +34,8 @@
     }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  /* hidden 屬性必須贏過任何 class 的 display（.call-actions 是 flex，會蓋掉瀏覽器預設） */
+  [hidden] { display: none !important; }
   html, body { margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
@@ -189,7 +191,6 @@
     background: rgba(6, 12, 9, .5); opacity: 0; pointer-events: none;
     transition: opacity .2s ease;
   }
-  .sheet-layer[hidden] { display: none; }
   .sheet-layer.show { opacity: 1; pointer-events: auto; }
   .sheet {
     width: 100%; max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -264,7 +265,6 @@
     opacity: 0; transform: scale(1.03); pointer-events: none;
     transition: opacity .22s ease, transform .28s cubic-bezier(.2,.8,.2,1);
   }
-  .call-layer[hidden] { display: none; }
   .call-layer.show { opacity: 1; transform: none; pointer-events: auto; }
   .call-layer::before {
     content: ""; position: absolute; inset: -20%;
